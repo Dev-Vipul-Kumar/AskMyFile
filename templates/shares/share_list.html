@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}My Shares – AskMyFile{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="flex-between mb-2" style="flex-wrap:wrap;gap:0.75rem;">
+      <h1 style="font-size:1.6rem;">My Shares</h1>
+      <a href="{% url 'core:home' %}" class="btn btn-primary btn-sm">+ New Share</a>
+    </div>
+
+    {% if shares %}
+    <div class="share-list">
+      {% for share in shares %}
+      <div class="share-item glass-card fade-in" style="padding:0.9rem 1.1rem;">
+        <div class="share-item-meta">
+          <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-bottom:0.25rem;">
+            <span class="status-badge status-{{ share.status }}">{{ share.status|title }}</span>
+            <span class="text-dim">{{ share.created_at|date:"M d, Y · H:i" }}</span>
+          </div>
+          <div class="share-item-name">
+            {% if share.original_filename %}{{ share.original_filename }}{% else %}<em style="color:var(--text-dim);">unnamed</em>{% endif %}
+          </div>
+          <div class="share-item-info">
+            {{ share.ciphertext_size|filesizeformat }} &middot;
+            {{ share.download_count }} download{{ share.download_count|pluralize }} &middot;
+            expires {{ share.expires_at|date:"M d, Y H:i" }} &middot;
+            {{ share.algorithm_version }}
+          </div>
+        </div>
+        <div class="share-item-actions">
+          {% if share.status == 'active' %}
+          <form method="post" action="{% url 'shares:revoke' share.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Revoke this share? Recipients will no longer be able to access it.')">
+              Revoke
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card" style="text-align:center;padding:3.5rem;">
+      <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
+      <p style="color:var(--text-muted);">No shares yet.</p>
+      <a href="{% url 'core:home' %}" class="btn btn-primary" style="margin-top:1rem;">Create your first share</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

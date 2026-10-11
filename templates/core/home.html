@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Dashboard – AskMyFile{% endblock %}
+
+{% block content %}
+
+<!-- ═══ Account header ═══ -->
+<div style="background:rgba(0,0,0,0.3);border-bottom:1px solid var(--glass-border);padding:0.9rem 1.5rem;backdrop-filter:blur(12px);">
+  <div class="container flex-between flex-wrap" style="gap:0.75rem;">
+    <div class="flex gap-2" style="align-items:center;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:0.6rem;">
+        <div style="width:34px;height:34px;background:linear-gradient(135deg,var(--cyan),var(--violet));border-radius:50%;display:grid;place-items:center;font-size:0.9rem;font-weight:700;color:#000;">
+          {{ user.full_name|first|upper }}
+        </div>
+        <span style="font-weight:600;font-size:0.95rem;">{{ user.full_name }}</span>
+      </div>
+      <span class="neon-badge">{{ plan_name }}</span>
+      <div class="quota-chip"><strong>{{ quota_remaining }}</strong> / {{ quota_limit }} shares today</div>
+    </div>
+    <div class="flex gap-1" style="flex-wrap:wrap;align-items:center;">
+      {% if active_subscription %}
+        <span class="text-dim">Renews {{ active_subscription.period_end|date:"M d, Y" }}</span>
+      {% else %}
+        <a href="{% url 'billing:plans' %}" class="btn btn-outline-cyan btn-sm">⬆ Upgrade</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Quota bar ═══ -->
+<div class="container" style="padding-top:1rem;padding-bottom:0;">
+  <div style="max-width:580px;">
+    <div class="flex-between mb-1" style="font-size:0.75rem;color:var(--text-dim);">
+      <span>Daily quota</span>
+      <span>{{ quota_used }}/{{ quota_limit }} used</span>
+    </div>
+    <div class="quota-bar-wrap">
+      <div class="quota-bar-fill"
+           style="width:{% if quota_limit > 0 %}{% widthratio quota_used quota_limit 100 %}{% else %}0{% endif %}%;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Upload card ═══ -->
+<section class="section" id="upload-section" style="padding-top:1.5rem;padding-bottom:1.5rem;">
+  <div class="container">
+    <div style="max-width:580px;margin:0 auto;">
+      <div class="glass-card" style="padding:2rem;">
+
+        <div class="flex-between mb-2">
+          <h2 style="font-size:1.3rem;margin:0;">New Secure Share</h2>
+          {% if quota_remaining == 0 %}
+          <span class="neon-badge-violet">⛔ Quota reached</span>
+          {% else %}
+          <span class="neon-badge">{{ quota_remaining }} left</span>
+          {% endif %}
+        </div>
+
+        <!-- ── Upload area ── -->
+        <div id="uploadArea" {% if quota_remaining == 0 %}class="hidden"{% endif %}>
+
+          <!-- Share type selector -->
+          <div class="form-group">
+            <label class="form-label">What are you sharing?</label>
+            <div class="channel-pills" role="group" id="shareTypeGroup">
+              <button type="button" class="channel-pill active" data-sharetype="file">📄 File</button>
+              <button type="button" class="channel-pill" data-sharetype="folder">📁 Folder</button>
+              <button type="button" class="channel-pill" data-sharetype="document">📝 Document</button>
+            </div>
+          </div>
+
+          <!-- Drop zone -->
+          <div class="drop-zone {% if quota_remaining == 0 %}disabled{% endif %}"
+               id="dropZone" role="button" tabindex="0" aria-label="Select file"
+               {% if quota_remaining == 0 %}aria-disabled="true"{% endif %}>
+            <input type="file" id="fileInput" {% if quota_remaining == 0 %}disabled{% endif %} aria-label="Select file" />
+            <span class="drop-icon">📤</span>
+            <p class="drop-zone-title">Drop file here or click to browse</p>
+            <p class="drop-zone-sub">Up to 500 MB · Any file type · Encrypted in browser</p>
+          </div>
+
+          <div id="fileInfo" class="file-pill hidden" aria-live="polite">
+            <span class="file-icon">📄</span>
+            <span class="file-name" id="fileName"></span>
+            <span class="file-size" id="fileSize"></span>
+          </div>
+
+          <!-- OTP channel: auto email for registered users, no UI choice needed -->
+          <!-- channel is set server-side: screen for guests, email for registered users -->
+
+          <div id="uploadError" class="alert alert-error hidden" role="alert" aria-live="assertive" style="margin-top:1rem;"></div>
+
+          <div id="progressWrap" class="progress-wrap hidden" style="margin-top:1rem;">
+            <p class="progress-label"><span class="spin-ring"></span><span id="progressLabel">Encrypting…</span></p>
+            <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-full btn-lg"
+                  id="createShareBtn" disabled style="margin-top:1.25rem;">
+            🔒 Encrypt &amp; Share
+          </button>
+
+        </div>
+
+        <!-- Quota exhausted -->
+        {% if quota_remaining == 0 %}
+        <div>
+          <div class="alert alert-warning">⛔ You've used all {{ quota_limit }} shares for today.</div>
+          {% if upgrade_plans %}
+          <div class="plans-grid" style="margin:1.25rem 0;">
+            {% for plan in upgrade_plans %}
+            <div class="plan-card glass-card {% if forloop.counter == 2 %}featured{% endif %}">
+              <div class="plan-name">{{ plan.name }}</div>
+              <div class="plan-price">{{ plan.price_display }}</div>
+              <div class="plan-limit">{{ plan.daily_share_limit }} shares/day</div>
+              <form method="post" action="{% url 'billing:checkout' %}" style="margin-top:auto;">
+                {% csrf_token %}
+                <input type="hidden" name="plan_id" value="{{ plan.id }}" />
+                <button type="submit" class="btn btn-primary btn-full btn-sm">Choose</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          <a href="{% url 'core:home' %}" class="btn btn-ghost btn-sm">Stay on Free plan</a>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ── Result area ── -->
+        <div id="resultArea" class="hidden">
+          <div class="otp-reveal">
+            <div class="scan-line"></div>
+            <p class="otp-label">Access Code</p>
+            <div class="otp-code" id="otpCode" aria-live="assertive">——————</div>
+            <p id="channelMsg" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;"></p>
+          </div>
+          <div class="alert alert-success" style="margin-top:1rem;">✅ Encrypted and uploaded successfully.</div>
+          <div class="glass-card" style="padding:0.85rem;margin-top:0.6rem;background:rgba(0,0,0,0.25);">
+            <p style="font-size:0.78rem;color:var(--text-muted);">
+              📌 Recipient opens:
+              <a href="{% url 'shares:access' %}" style="color:var(--cyan);">{{ request.get_host }}/shares/access/</a>
+            </p>
+          </div>
+          <button type="button" id="shareAnotherBtn" class="btn btn-ghost btn-full" style="margin-top:1rem;">
+            ↩ Share another file
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ Recent shares ═══ -->
+<section class="section" style="padding-top:0.5rem;">
+  <div class="container">
+    <div class="flex-between mb-2" style="flex-wrap:wrap;gap:0.5rem;">
+      <h2 style="font-size:1.2rem;margin:0;">Recent Shares</h2>
+      <a href="{% url 'shares:list' %}" class="btn btn-ghost btn-sm">View all →</a>
+    </div>
+
+    {% if recent_shares %}
+    <div class="share-list">
+      {% for share in recent_shares %}
+      <div class="share-item glass-card" style="padding:0.85rem 1.1rem;">
+        <div class="share-item-meta">
+          <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-bottom:0.2rem;">
+            <span class="status-badge status-{{ share.status }}">{{ share.status|title }}</span>
+            {% if share.share_type == 'folder' %}📁{% elif share.share_type == 'document' %}📝{% else %}📄{% endif %}
+            <span class="text-dim">{{ share.created_at|date:"M d · H:i" }}</span>
+          </div>
+          <div class="share-item-name">
+            {% if share.original_filename %}{{ share.original_filename }}{% else %}<em style="color:var(--text-dim);">unnamed file</em>{% endif %}
+          </div>
+          <div class="share-item-info">
+            {{ share.ciphertext_size|filesizeformat }} &middot;
+            {{ share.download_count }} download{{ share.download_count|pluralize }} &middot;
+            expires {{ share.expires_at|date:"M d, Y H:i" }}
+          </div>
+        </div>
+        <div class="share-item-actions">
+          {% if share.status == 'active' %}
+          <form method="post" action="{% url 'shares:revoke' share.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm"
+                    onclick="return confirm('Revoke this share?')">Revoke</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="glass-card" style="text-align:center;padding:3rem;">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;">📭</div>
+      <p style="color:var(--text-muted);">No shares yet. Create your first secure share above.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const PBKDF2_ITERS = {{ pbkdf2_iterations }};
+  const CSRF_TOKEN   = "{{ csrf_token }}";
+  const IS_AUTH      = true;
+</script>
+<script src="{% static 'js/crypto.js' %}"></script>
+<script src="{% static 'js/uploader.js' %}"></script>
+{% endblock %}

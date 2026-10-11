@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Sign In – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card fade-in">
+
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--violet),var(--pink));
+                  border-radius:16px;display:grid;place-items:center;margin:0 auto 1rem;font-size:1.4rem;">🔐</div>
+      <h1 style="font-size:1.6rem;">Welcome back</h1>
+      <p class="auth-subtitle">Sign in to your AskMyFile account.</p>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-error" role="alert">
+        {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.email.id_for_label }}">Email Address</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p class="form-error">{{ form.email.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+        {{ form.password }}
+        {% if form.password.errors %}<p class="form-error">{{ form.password.errors.0 }}</p>{% endif %}
+        <!-- Forgot password link directly below the password field -->
+        <div style="text-align:right;margin-top:0.4rem;">
+          <a href="{% url 'accounts:phone_reset_request' %}"
+             style="font-size:0.8rem;color:var(--text-dim);transition:color 0.2s;"
+             onmouseover="this.style.color='var(--cyan)'"
+             onmouseout="this.style.color='var(--text-dim)'">
+            Forgot Password?
+          </a>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg">Sign In →</button>
+
+      <div class="flex-center mt-2" style="font-size:0.82rem;gap:1.5rem;">
+        <a href="{% url 'accounts:register' %}" style="color:var(--cyan);">Create account</a>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

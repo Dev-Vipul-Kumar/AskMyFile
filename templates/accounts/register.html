@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Create Account – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card fade-in">
+
+    <div style="text-align:center;margin-bottom:1.5rem;">
+      <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--cyan),var(--violet));border-radius:16px;display:grid;place-items:center;margin:0 auto 1rem;font-size:1.4rem;">👤</div>
+      <h1 style="font-size:1.6rem;">Create Account</h1>
+      <p class="auth-subtitle">Email + phone verification required during sign-up.</p>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="alert alert-error">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+      {% endif %}
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.email.id_for_label }}">Email Address</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p class="form-error">{{ form.email.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.display_name.id_for_label }}">Display Name <span style="color:var(--text-dim);">(optional)</span></label>
+        {{ form.display_name }}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.phone_number.id_for_label }}">Mobile Number</label>
+        {{ form.phone_number }}
+        <p class="form-hint">Format: +91XXXXXXXXXX · Used for OTP verification only</p>
+        {% if form.phone_number.errors %}<p class="form-error">{{ form.phone_number.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
+        {{ form.password }}
+        {% if form.password.errors %}<p class="form-error">{{ form.password.errors.0 }}</p>{% endif %}
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="{{ form.password_confirm.id_for_label }}">Confirm Password</label>
+        {{ form.password_confirm }}
+        {% if form.password_confirm.errors %}<p class="form-error">{{ form.password_confirm.errors.0 }}</p>{% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg">Create Account →</button>
+    </form>
+
+    <div class="auth-divider">Already have an account?</div>
+    <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-full">Sign In</a>
+
+  </div>
+</div>
+{% endblock %}

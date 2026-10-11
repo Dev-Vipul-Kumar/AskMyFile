@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Payment Failed – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page" style="min-height:80vh;">
+  <div class="auth-card glass-card fade-in" style="max-width:460px;text-align:center;padding:2.5rem;">
+
+    <div style="width:80px;height:80px;background:rgba(255,71,87,0.15);border:2px solid rgba(255,71,87,0.4);
+                border-radius:50%;display:grid;place-items:center;margin:0 auto 1.5rem;font-size:2rem;
+                animation:otp-appear 0.6s cubic-bezier(0.34,1.56,0.64,1);">❌</div>
+
+    <h1 style="font-size:1.8rem;margin-bottom:0.5rem;color:var(--red);">Payment Failed</h1>
+    <p style="color:var(--text-muted);margin-bottom:1.75rem;">
+      Your payment could not be processed. No amount has been deducted.<br>
+      Please try again or use a different payment method.
+    </p>
+
+    <div class="glass-card" style="padding:1rem;margin-bottom:1.5rem;text-align:left;">
+      <p style="font-size:0.82rem;color:var(--text-dim);line-height:1.8;">
+        Common reasons for failure:<br>
+        • Insufficient balance or card limit<br>
+        • Bank declined the transaction<br>
+        • UPI timeout or wrong PIN<br>
+        • Network issue during payment
+      </p>
+    </div>
+
+    <div style="display:flex;gap:0.75rem;flex-direction:column;">
+      <a href="{% url 'billing:plans' %}" class="btn btn-primary btn-full btn-lg">
+        🔄 Try Again
+      </a>
+      <a href="{% url 'core:home' %}" class="btn btn-ghost btn-full">
+        Continue on Free Plan
+      </a>
+    </div>
+
+    <p style="font-size:0.75rem;color:var(--text-dim);margin-top:1.25rem;">
+      If amount was deducted, it will be refunded within 5–7 business days.
+      Contact support if the issue persists.
+    </p>
+
+  </div>
+</div>
+{% endblock %}

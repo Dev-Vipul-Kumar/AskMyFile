@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Reset Password via SMS – AskMyFile{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card fade-in" style="max-width:460px;">
+
+    <!-- Step indicator -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:2rem;">
+      {% for i, label in "1:Phone,2:OTP Code,3:New Password"|make_list %}{% endfor %}
+      <div id="step-ind-1" class="step-dot active">1</div>
+      <div class="step-line" id="line-1-2"></div>
+      <div id="step-ind-2" class="step-dot">2</div>
+      <div class="step-line" id="line-2-3"></div>
+      <div id="step-ind-3" class="step-dot">3</div>
+    </div>
+
+    <!-- ─────────────── STEP 1: Enter phone ─────────────── -->
+    <div id="step1">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem;">📱</div>
+        <h1 style="font-size:1.5rem;">Reset via SMS</h1>
+        <p class="auth-subtitle" style="margin-top:0.4rem;">
+          Enter your registered mobile number. We'll send a 6-digit code to verify it's you.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="phoneInput">Mobile Number</label>
+        <div style="position:relative;">
+          <input type="tel" id="phoneInput" class="form-input"
+                 placeholder="+91XXXXXXXXXX"
+                 autocomplete="tel"
+                 style="padding-right:2.5rem;" />
+          <!-- Real-time status icon -->
+          <span id="phoneStatus" style="position:absolute;right:0.75rem;top:50%;
+                transform:translateY(-50%);font-size:1rem;transition:opacity 0.2s;opacity:0;">
+          </span>
+        </div>
+        <!-- Real-time feedback message -->
+        <p id="phoneMsg" style="font-size:0.78rem;margin-top:0.35rem;min-height:1.1rem;
+                                 transition:color 0.2s;color:var(--text-dim);">
+          Type your number to check if it's registered.
+        </p>
+      </div>
+
+      <div id="step1Error" class="alert alert-error hidden" role="alert"></div>
+
+      <button type="button" id="sendOtpBtn" class="btn btn-primary btn-full btn-lg" disabled>
+        📲 Send OTP Code
+      </button>
+
+      <div class="flex-center mt-2">
+        <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-sm">← Back to Sign In</a>
+      </div>
+    </div>
+
+    <!-- ─────────────── STEP 2: Enter OTP ─────────────── -->
+    <div id="step2" class="hidden">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem;">🔢</div>
+        <h1 style="font-size:1.5rem;">Enter the Code</h1>
+        <p class="auth-subtitle" style="margin-top:0.4rem;">
+          Enter the 6-digit code sent to <strong id="phoneDisplay" style="color:var(--cyan);"></strong>
+        </p>
+      </div>
+
+      <!-- 6-box OTP entry -->
+      <div class="otp-group" role="group" aria-label="6-digit verification code">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               autocomplete="one-time-code" aria-label="Digit 1" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 2" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 3" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 4" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 5" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 6" />
+      </div>
+
+      <div id="step2Error" class="alert alert-error hidden" role="alert" style="margin-top:0.75rem;"></div>
+
+      <div id="step2Progress" class="progress-wrap hidden" style="margin-top:0.75rem;">
+        <p class="progress-label"><span class="spin-ring"></span><span>Verifying code…</span></p>
+        <div class="progress-track"><div class="progress-fill indeterminate"></div></div>
+      </div>
+
+      <button type="button" id="verifyOtpBtn" class="btn btn-primary btn-full btn-lg" disabled style="margin-top:1rem;">
+        ✅ Verify Code
+      </button>
+
+      <div class="flex-center mt-2" style="gap:1rem;">
+        <button type="button" id="resendOtpBtn" class="btn btn-ghost btn-sm">Resend Code</button>
+        <button type="button" id="backToStep1Btn" class="btn btn-ghost btn-sm">← Change number</button>
+      </div>
+    </div>
+
+    <!-- ─────────────── STEP 3: New password ─────────────── -->
+    <div id="step3" class="hidden">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem;">🔐</div>
+        <h1 style="font-size:1.5rem;">Set New Password</h1>
+        <p class="auth-subtitle" style="margin-top:0.4rem;">Choose a strong password for your account.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="newPassword">New Password</label>
+        <input type="password" id="newPassword" class="form-input"
+               placeholder="At least 8 characters" autocomplete="new-password" />
+        <div id="pwStrengthBar" style="height:3px;background:var(--glass-border);border-radius:999px;
+                                        margin-top:0.5rem;overflow:hidden;">
+          <div id="pwStrengthFill" style="height:100%;width:0%;border-radius:999px;transition:width 0.3s,background 0.3s;"></div>
+        </div>
+        <p id="pwStrengthMsg" class="form-hint" style="min-height:1rem;"></p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" class="form-input"
+               placeholder="Re-enter new password" autocomplete="new-password" />
+        <p id="confirmMsg" class="form-hint" style="min-height:1rem;"></p>
+      </div>
+
+      <div id="step3Error" class="alert alert-error hidden" role="alert"></div>
+
+      <div id="step3Progress" class="progress-wrap hidden">
+        <p class="progress-label"><span class="spin-ring"></span><span>Saving password…</span></p>
+        <div class="progress-track"><div class="progress-fill indeterminate"></div></div>
+      </div>
+
+      <button type="button" id="savePasswordBtn" class="btn btn-primary btn-full btn-lg" disabled>
+        💾 Save New Password
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<style>
+  /* Step indicator dots */
+  .step-dot {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 0.82rem; font-weight: 700;
+    background: var(--glass); border: 2px solid var(--glass-border);
+    color: var(--text-dim); transition: all 0.35s ease; flex-shrink: 0;
+  }
+  .step-dot.active {
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    border-color: var(--cyan); color: #000;
+    box-shadow: 0 0 12px rgba(0,245,255,0.5);
+  }
+  .step-dot.done {
+    background: rgba(0,255,163,0.15);
+    border-color: var(--green); color: var(--green);
+  }
+  .step-line {
+    flex: 1; height: 2px; background: var(--glass-border);
+    margin: 0 4px; transition: background 0.35s ease;
+  }
+  .step-line.done { background: var(--green); }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ─── CSRF token ───
+  function getCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+
+  // ─── Step management ───
+  let currentPhone = "";
+  const steps = [
+    document.getElementById("step1"),
+    document.getElementById("step2"),
+    document.getElementById("step3"),
+  ];
+  const dots  = [
+    document.getElementById("step-ind-1"),
+    document.getElementById("step-ind-2"),
+    document.getElementById("step-ind-3"),
+  ];
+  const lines = [
+    document.getElementById("line-1-2"),
+    document.getElementById("line-2-3"),
+  ];
+
+  function goToStep(n) {  // n is 1-based
+    steps.forEach((s, i) => s.classList.toggle("hidden", i !== n - 1));
+    dots.forEach((d, i) => {
+      d.classList.remove("active", "done");
+      if (i + 1 < n)  d.classList.add("done");
+      if (i + 1 === n) d.classList.add("active");
+    });
+    lines.forEach((l, i) => l.classList.toggle("done", i < n - 1));
+  }
+
+  function showErr(el, msg) {
+    el.textContent = "⚠ " + msg;
+    el.classList.remove("hidden");
+  }
+  function clearErr(el) { el.classList.add("hidden"); }
+
+  // ─────────────────────── STEP 1: Phone input ───────────────────────
+  const phoneInput  = document.getElementById("phoneInput");
+  const phoneStatus = document.getElementById("phoneStatus");
+  const phoneMsg    = document.getElementById("phoneMsg");
+  const sendOtpBtn  = document.getElementById("sendOtpBtn");
+  const step1Error  = document.getElementById("step1Error");
+
+  let checkTimer = null;
+  let isRegistered = false;
+
+  phoneInput.addEventListener("input", () => {
+    const phone = phoneInput.value.trim();
+    clearErr(step1Error);
+    sendOtpBtn.disabled = true;
+    phoneStatus.textContent = "";
+    phoneMsg.textContent    = "Checking…";
+    phoneMsg.style.color    = "var(--text-dim)";
+
+    clearTimeout(checkTimer);
+    if (phone.length < 7) {
+      phoneMsg.textContent = "Enter your registered phone number.";
+      isRegistered = false;
+      return;
+    }
+
+    // Debounce 500ms then check
+    checkTimer = setTimeout(async () => {
+      try {
+        const res  = await fetch("/accounts/phone-reset/check/?phone=" + encodeURIComponent(phone));
+        const data = await res.json();
+        isRegistered = data.registered;
+        if (data.registered) {
+          phoneStatus.textContent = "✅";
+          phoneMsg.textContent    = "✓ Number is registered — you can receive the OTP.";
+          phoneMsg.style.color    = "var(--green)";
+          sendOtpBtn.disabled     = false;
+        } else {
+          phoneStatus.textContent = "❌";
+          phoneMsg.textContent    = "This number is not registered with any account.";
+          phoneMsg.style.color    = "var(--red)";
+          sendOtpBtn.disabled     = true;
+        }
+      } catch {
+        phoneMsg.textContent = "Could not check. Try again.";
+        phoneMsg.style.color = "var(--orange)";
+      }
+    }, 500);
+  });
+
+  sendOtpBtn.addEventListener("click", async () => {
+    const phone = phoneInput.value.trim();
+    clearErr(step1Error);
+    sendOtpBtn.disabled  = true;
+    sendOtpBtn.innerHTML = '<span class="spin-ring"></span> Sending…';
+
+    try {
+      const res  = await fetch("/accounts/phone-reset/", {
+        method: "POST",
+        headers: {"Content-Type":"application/json","X-CSRFToken":getCsrf()},
+        body: JSON.stringify({action:"send_otp", phone}),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        currentPhone = phone;
+        document.getElementById("phoneDisplay").textContent = phone;
+        goToStep(2);
+        // In dev mode show the OTP as an info banner
+        if (data.dev_otp) {
+          const d = document.createElement("div");
+          d.className = "alert alert-info fade-in";
+          d.textContent = "⚙ DEV: OTP is " + data.dev_otp;
+          document.getElementById("step2").prepend(d);
+        }
+      } else {
+        showErr(step1Error, data.error || "Failed to send OTP.");
+        sendOtpBtn.disabled  = false;
+        sendOtpBtn.innerHTML = "📲 Send OTP Code";
+      }
+    } catch {
+      showErr(step1Error, "Network error. Please try again.");
+      sendOtpBtn.disabled  = false;
+      sendOtpBtn.innerHTML = "📲 Send OTP Code";
+    }
+  });
+
+  // ─────────────────────── STEP 2: OTP boxes ───────────────────────
+  const boxes       = [...document.querySelectorAll(".otp-box")];
+  const verifyBtn   = document.getElementById("verifyOtpBtn");
+  const step2Error  = document.getElementById("step2Error");
+  const step2Prog   = document.getElementById("step2Progress");
+
+  function getOtp() { return boxes.map(b => b.value).join(""); }
+
+  boxes.forEach((box, idx) => {
+    box.addEventListener("input", () => {
+      box.value = box.value.replace(/\D/g, "").slice(-1);
+      box.classList.toggle("filled", !!box.value);
+      if (box.value && idx < boxes.length - 1) boxes[idx + 1].focus();
+      verifyBtn.disabled = getOtp().length !== 6;
+      clearErr(step2Error);
+    });
+    box.addEventListener("keydown", e => {
+      if (e.key === "Backspace" && !box.value && idx > 0) {
+        boxes[idx - 1].value = "";
+        boxes[idx - 1].classList.remove("filled");
+        boxes[idx - 1].focus();
+      }
+      if (e.key === "ArrowLeft"  && idx > 0)               boxes[idx - 1].focus();
+      if (e.key === "ArrowRight" && idx < boxes.length - 1) boxes[idx + 1].focus();
+      if (e.key === "Enter") verifyBtn.click();
+    });
+    box.addEventListener("paste", e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "").slice(0, 6);
+      [...text].forEach((ch, i) => {
+        if (boxes[idx + i]) { boxes[idx + i].value = ch; boxes[idx + i].classList.add("filled"); }
+      });
+      boxes[Math.min(idx + text.length, boxes.length - 1)].focus();
+      verifyBtn.disabled = getOtp().length !== 6;
+    });
+  });
+
+  verifyBtn.addEventListener("click", async () => {
+    clearErr(step2Error);
+    verifyBtn.disabled      = true;
+    step2Prog.classList.remove("hidden");
+
+    try {
+      const res  = await fetch("/accounts/phone-reset/", {
+        method: "POST",
+        headers: {"Content-Type":"application/json","X-CSRFToken":getCsrf()},
+        body: JSON.stringify({action:"verify_otp", phone:currentPhone, otp:getOtp()}),
+      });
+      const data = await res.json();
+      step2Prog.classList.add("hidden");
+      if (data.ok) {
+        goToStep(3);
+        document.getElementById("newPassword").focus();
+      } else {
+        showErr(step2Error, data.error || "Verification failed.");
+        verifyBtn.disabled = false;
+        boxes.forEach(b => { b.style.borderColor="var(--red)"; });
+        setTimeout(() => boxes.forEach(b => b.style.borderColor = ""), 2000);
+      }
+    } catch {
+      step2Prog.classList.add("hidden");
+      showErr(step2Error, "Network error. Please try again.");
+      verifyBtn.disabled = false;
+    }
+  });
+
+  // Resend OTP
+  document.getElementById("resendOtpBtn").addEventListener("click", async () => {
+    await fetch("/accounts/phone-reset/", {
+      method: "POST",
+      headers: {"Content-Type":"application/json","X-CSRFToken":getCsrf()},
+      body: JSON.stringify({action:"send_otp", phone:currentPhone}),
+    });
+    boxes.forEach(b => { b.value=""; b.classList.remove("filled"); });
+    verifyBtn.disabled = true;
+    clearErr(step2Error);
+    boxes[0].focus();
+    // Brief green flash
+    const flash = document.createElement("div");
+    flash.className = "alert alert-success fade-in";
+    flash.textContent = "✅ New code sent!";
+    document.getElementById("step2").prepend(flash);
+    setTimeout(() => flash.remove(), 3000);
+  });
+
+  document.getElementById("backToStep1Btn").addEventListener("click", () => {
+    boxes.forEach(b => { b.value=""; b.classList.remove("filled"); });
+    verifyBtn.disabled = true;
+    clearErr(step2Error);
+    goToStep(1);
+    sendOtpBtn.disabled  = false;
+    sendOtpBtn.innerHTML = "📲 Send OTP Code";
+  });
+
+  // ─────────────────────── STEP 3: Password ───────────────────────
+  const newPw      = document.getElementById("newPassword");
+  const confPw     = document.getElementById("confirmPassword");
+  const savePwBtn  = document.getElementById("savePasswordBtn");
+  const step3Error = document.getElementById("step3Error");
+  const step3Prog  = document.getElementById("step3Progress");
+  const pwFill     = document.getElementById("pwStrengthFill");
+  const pwMsg      = document.getElementById("pwStrengthMsg");
+  const confMsg    = document.getElementById("confirmMsg");
+
+  function evalStrength(pw) {
+    let score = 0;
+    if (pw.length >= 8)  score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    return score;
+  }
+
+  newPw.addEventListener("input", () => {
+    const pw = newPw.value;
+    const s  = evalStrength(pw);
+    const pct = Math.min(100, s * 22);
+    const colors = ["#ff4757","#ff7f00","#f59e0b","#22c55e","#00f5ff"];
+    const labels = ["Too weak","Weak","Fair","Strong","Very strong"];
+    pwFill.style.width      = pct + "%";
+    pwFill.style.background = colors[Math.min(s - 1, 4)] || "#ff4757";
+    pwMsg.textContent       = pw.length > 0 ? (labels[Math.min(s - 1, 4)] || "Too weak") : "";
+    validatePwMatch();
+  });
+
+  confPw.addEventListener("input", validatePwMatch);
+
+  function validatePwMatch() {
+    const p = newPw.value;
+    const c = confPw.value;
+    if (!c) { confMsg.textContent=""; savePwBtn.disabled=true; return; }
+    if (p === c) {
+      confMsg.textContent  = "✓ Passwords match";
+      confMsg.style.color  = "var(--green)";
+      savePwBtn.disabled   = p.length < 8;
+    } else {
+      confMsg.textContent  = "Passwords do not match";
+      confMsg.style.color  = "var(--red)";
+      savePwBtn.disabled   = true;
+    }
+  }
+
+  savePwBtn.addEventListener("click", async () => {
+    clearErr(step3Error);
+    savePwBtn.disabled = true;
+    step3Prog.classList.remove("hidden");
+
+    try {
+      const res  = await fetch("/accounts/phone-reset/", {
+        method: "POST",
+        headers: {"Content-Type":"application/json","X-CSRFToken":getCsrf()},
+        body: JSON.stringify({
+          action:   "set_password",
+          password: newPw.value,
+          confirm:  confPw.value,
+        }),
+      });
+      const data = await res.json();
+      step3Prog.classList.add("hidden");
+
+      if (data.ok) {
+        // Show success then redirect to login
+        document.getElementById("step3").innerHTML = `
+          <div style="text-align:center;padding:1rem 0;">
+            <div style="font-size:3rem;margin-bottom:1rem;animation:float 2s ease-in-out infinite;">🎉</div>
+            <h2 style="color:var(--green);margin-bottom:0.5rem;">Password Updated!</h2>
+            <p style="color:var(--text-muted);margin-bottom:1.5rem;">
+              Your password has been changed successfully. Redirecting to sign in…
+            </p>
+            <a href="/accounts/login/" class="btn btn-primary btn-lg">Sign In Now →</a>
+          </div>`;
+        setTimeout(() => { window.location.href = "/accounts/login/"; }, 3000);
+      } else {
+        showErr(step3Error, data.error || "Failed to save password.");
+        savePwBtn.disabled = false;
+      }
+    } catch {
+      step3Prog.classList.add("hidden");
+      showErr(step3Error, "Network error. Please try again.");
+      savePwBtn.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

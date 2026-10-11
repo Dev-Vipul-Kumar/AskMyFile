@@ -1,0 +1,108 @@
+{% extends "admin_panel/base_admin.html" %}
+{% load static %}
+{% block title %}Admin Share{% endblock %}
+{% block page_title %}Share a File (Admin — No Limits){% endblock %}
+
+{% block content %}
+<div style="max-width:620px;">
+
+  <div class="alert alert-info" style="margin-bottom:1.5rem;">
+    ⚡ Admin shares have <strong>no file size limit</strong>, <strong>no daily quota</strong>,
+    and <strong>no expiry restriction</strong>. All file types and folders are accepted.
+  </div>
+
+  <div class="glass-card" style="padding:2rem;">
+
+    <div id="uploadArea">
+
+      <!-- Share type selector -->
+      <div class="form-group">
+        <label class="form-label">What are you sharing?</label>
+        <div class="channel-pills" role="group" id="shareTypeGroup">
+          <button type="button" class="channel-pill active" data-sharetype="file">📄 File</button>
+          <button type="button" class="channel-pill" data-sharetype="folder">📁 Folder / Archive</button>
+          <button type="button" class="channel-pill" data-sharetype="document">📝 Document</button>
+        </div>
+      </div>
+
+      <!-- Drop zone -->
+      <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Select file">
+        <input type="file" id="fileInput" aria-label="Select file" />
+        <span class="drop-icon" id="dropIcon">📤</span>
+        <p class="drop-zone-title" id="dropTitle">Drop any file, folder archive, or document</p>
+        <p class="drop-zone-sub">No size limit for admin · Any file type accepted</p>
+      </div>
+
+      <div id="fileInfo" class="file-pill hidden" aria-live="polite">
+        <span class="file-icon">📄</span>
+        <span class="file-name" id="fileName"></span>
+        <span class="file-size" id="fileSize"></span>
+      </div>
+
+      <!-- OTP delivery -->
+      <div class="form-group" style="margin-top:1.25rem;">
+        <label class="form-label">Send access code via</label>
+        <div class="channel-pills" id="otpChannelGroup">
+          <button type="button" class="channel-pill active" data-channel="screen">🖥 Screen</button>
+          <button type="button" class="channel-pill" data-channel="email">📧 Email</button>
+          <button type="button" class="channel-pill" data-channel="sms">📱 SMS</button>
+        </div>
+      </div>
+
+      <div id="uploadError" class="alert alert-error hidden" role="alert" aria-live="assertive"></div>
+
+      <div id="progressWrap" class="progress-wrap hidden">
+        <p class="progress-label"><span class="spin-ring"></span><span id="progressLabel">Encrypting…</span></p>
+        <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
+      </div>
+
+      <button type="button" id="createShareBtn" class="btn btn-primary btn-full btn-lg" disabled style="margin-top:1.25rem;">
+        🔒 Encrypt &amp; Share (Admin)
+      </button>
+    </div>
+
+    <!-- Result -->
+    <div id="resultArea" class="hidden">
+      <div class="otp-reveal">
+        <div class="scan-line"></div>
+        <p class="otp-label">Access Code</p>
+        <div class="otp-code" id="otpCode" aria-live="assertive">——————</div>
+        <p id="channelMsg" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;"></p>
+      </div>
+      <div class="alert alert-success" style="margin-top:1rem;">✅ Encrypted and uploaded.</div>
+      <div class="glass-card" style="padding:0.85rem;margin-top:0.6rem;background:rgba(0,0,0,0.25);">
+        <p style="font-size:0.78rem;color:var(--text-muted);">
+          📌 Recipient opens:
+          <a href="/shares/access/" style="color:var(--cyan);">{{ request.get_host }}/shares/access/</a>
+        </p>
+      </div>
+      <button type="button" id="shareAnotherBtn" class="btn btn-ghost btn-full" style="margin-top:1rem;">
+        ↩ Share another file
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const PBKDF2_ITERS = {{ pbkdf2_iterations }};
+  const CSRF_TOKEN   = "{{ csrf_token }}";
+
+  // Share type pills
+  document.querySelectorAll("#shareTypeGroup .channel-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#shareTypeGroup .channel-pill").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const icons = { file:"📤", folder:"📦", document:"📝" };
+      const titles = { file:"Drop any file", folder:"Drop a folder archive (ZIP/RAR/etc.)", document:"Drop a document (PDF, DOCX, etc.)" };
+      const t = btn.dataset.sharetype;
+      document.getElementById("dropIcon").textContent  = icons[t]  || "📤";
+      document.getElementById("dropTitle").textContent = titles[t] || "Drop file here";
+    });
+  });
+</script>
+<script src="{% static 'js/crypto.js' %}"></script>
+<script src="{% static 'js/uploader.js' %}"></script>
+{% endblock %}

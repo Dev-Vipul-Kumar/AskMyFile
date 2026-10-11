@@ -1,0 +1,68 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Shares{% endblock %}
+{% block page_title %}All Shares ({{ total_count }}){% endblock %}
+{% block content %}
+
+<form class="admin-search" method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search filename or owner email…" />
+  <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  <a href="?filter=all"      class="filter-pill {% if filt == 'all' %}active{% endif %}">All</a>
+  <a href="?filter=active"   class="filter-pill {% if filt == 'active' %}active{% endif %}">Active</a>
+  <a href="?filter=expired"  class="filter-pill {% if filt == 'expired' %}active{% endif %}">Expired</a>
+  <a href="?filter=revoked"  class="filter-pill {% if filt == 'revoked' %}active{% endif %}">Revoked</a>
+  <a href="?filter=file"     class="filter-pill {% if filt == 'file' %}active{% endif %}">📄 Files</a>
+  <a href="?filter=folder"   class="filter-pill {% if filt == 'folder' %}active{% endif %}">📁 Folders</a>
+  <a href="?filter=document" class="filter-pill {% if filt == 'document' %}active{% endif %}">📝 Documents</a>
+</form>
+
+<div class="admin-section">
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Filename</th><th>Type</th><th>Owner</th>
+          <th>Size</th><th>Downloads</th><th>Status</th><th>Expires</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in shares %}
+        <tr>
+          <td class="cell-mono" style="color:var(--text-dim);">{{ s.id }}</td>
+          <td><strong>{{ s.original_filename|default:"unnamed"|truncatechars:32 }}</strong></td>
+          <td style="font-size:0.75rem;">
+            {% if s.share_type == 'file' %}📄{% elif s.share_type == 'folder' %}📁{% else %}📝{% endif %}
+            {{ s.share_type }}
+          </td>
+          <td>
+            {% if s.owner_user %}
+              <a href="{% url 'admin_panel:user_detail' s.owner_user.id %}" class="cell-email">
+                {{ s.owner_user.email|truncatechars:25 }}
+              </a>
+            {% else %}<span class="text-dim">Guest</span>{% endif %}
+          </td>
+          <td style="font-size:0.78rem;color:var(--text-dim);">{{ s.ciphertext_size|filesizeformat }}</td>
+          <td style="color:var(--cyan);">{{ s.download_count }}</td>
+          <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
+          <td style="font-size:0.75rem;color:var(--text-dim);">{{ s.expires_at|date:"M d, H:i" }}</td>
+          <td style="display:flex;gap:0.35rem;">
+            {% if s.status == 'active' %}
+            <form method="post" action="{% url 'admin_panel:revoke_share' s.id %}">
+              {% csrf_token %}
+              <button class="btn btn-danger btn-sm">Revoke</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{% url 'admin_panel:delete_share' s.id %}"
+                  onsubmit="return confirm('Permanently delete this share and its stored file?')">
+              {% csrf_token %}
+              <button class="btn btn-ghost btn-sm">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-dim);">No shares found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

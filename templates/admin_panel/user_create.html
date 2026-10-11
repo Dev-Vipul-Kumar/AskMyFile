@@ -1,0 +1,82 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Add User{% endblock %}
+{% block page_title %}Add New User{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;">
+
+  <div style="margin-bottom:1.25rem;">
+    <a href="{% url 'admin_panel:users' %}" class="btn btn-ghost btn-sm">← Back to Users</a>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-error" role="alert">⚠ {{ error }}</div>
+  {% endif %}
+
+  <div class="admin-section" style="padding:1.75rem;">
+    <div class="admin-section-header" style="margin-bottom:1.5rem;">
+      <span class="admin-section-title">👤 Create New User Account</span>
+    </div>
+
+    <p style="font-size:0.82rem;color:var(--text-dim);margin-bottom:1.5rem;
+              background:rgba(0,245,255,0.05);border:1px solid rgba(0,245,255,0.15);
+              border-radius:8px;padding:0.75rem 1rem;">
+      ℹ Admin-created accounts are <strong style="color:var(--cyan);">automatically marked as verified</strong>
+      (both email and phone) and can sign in immediately. No verification OTP will be sent.
+    </p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="form-group">
+        <label class="form-label" for="email">Email Address *</label>
+        <input type="email" name="email" id="email" required
+               class="form-input" placeholder="user@example.com"
+               autocomplete="email" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="display_name">Display Name</label>
+        <input type="text" name="display_name" id="display_name"
+               class="form-input" placeholder="Full name (optional)"
+               autocomplete="name" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="phone_number">Phone Number</label>
+        <input type="tel" name="phone_number" id="phone_number"
+               class="form-input" placeholder="+91XXXXXXXXXX (optional)"
+               autocomplete="tel" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password *</label>
+        <input type="password" name="password" id="password" required
+               class="form-input" placeholder="Minimum 8 characters"
+               autocomplete="new-password" />
+      </div>
+
+      <!-- Permissions -->
+      <div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);
+                  border-radius:8px;padding:1rem;margin-bottom:1.25rem;">
+        <p class="form-label" style="margin-bottom:0.75rem;color:var(--admin-accent);">Permissions</p>
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;">
+          <input type="checkbox" name="is_staff" value="1"
+                 style="width:16px;height:16px;accent-color:var(--admin-accent);" />
+          <span style="font-size:0.88rem;color:var(--text);">
+            <strong>Staff / Admin</strong>
+            <span style="color:var(--text-dim);"> — grants access to this admin panel</span>
+          </span>
+        </label>
+      </div>
+
+      <div style="display:flex;gap:0.75rem;">
+        <a href="{% url 'admin_panel:users' %}" class="btn btn-ghost" style="flex:1;">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="flex:2;">
+          ✅ Create User
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

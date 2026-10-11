@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Sandbox Payment – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card card" style="max-width:480px;">
+    <div style="text-align:center;margin-bottom:1.25rem;">
+      <div style="font-size:2.5rem;" aria-hidden="true">🧪</div>
+      <h1>Sandbox Payment</h1>
+      <p class="text-muted mt-1">Development mode only. Simulate a successful payment.</p>
+    </div>
+
+    {% if pending_subs %}
+      {% for sub in pending_subs %}
+      <div class="card mb-2" style="background:var(--surface2);">
+        <div class="flex-between">
+          <span><strong>{{ sub.plan.name }}</strong> – {{ sub.plan.price_display }}</span>
+          <span class="text-muted" style="font-size:0.8rem;">{{ sub.plan.daily_share_limit }} shares/day</span>
+        </div>
+        <form method="post" class="mt-2">
+          {% csrf_token %}
+          <input type="hidden" name="subscription_id" value="{{ sub.id }}" />
+          <button type="submit" class="btn btn-primary btn-full">✅ Confirm Sandbox Payment for {{ sub.plan.name }}</button>
+        </form>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="alert alert-warning">No pending subscriptions found.</div>
+    {% endif %}
+
+    <a href="{% url 'billing:plans' %}" class="btn btn-ghost btn-full mt-2">Back to Plans</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}AskMyFile – Share Files with an OTP Code{% endblock %}
+
+{% block content %}
+
+<!-- ═══════════════════════════════════
+     HERO
+════════════════════════════════════ -->
+<section class="hero" style="padding-bottom:2rem;">
+  <div class="container">
+
+    <div class="hero-eyebrow fade-in">
+      <span class="neon-badge">⚡ Zero-knowledge encryption</span>
+      <span class="neon-badge-violet">🔢 OTP access · No passphrase</span>
+    </div>
+
+    <h1 class="fade-in fade-in-delay-1">
+      Share any file.<br>
+      <span class="gradient-text">Unlock with a code.</span>
+    </h1>
+
+    <p class="lead fade-in fade-in-delay-2">
+      Drop a file. Get a 6-digit code. Share the code with your recipient.<br>
+      No account needed to receive. Files encrypted in your browser — always.
+    </p>
+
+    <div class="hero-cta fade-in fade-in-delay-3">
+      <a href="#upload-section" class="btn btn-primary btn-lg">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Share a File
+      </a>
+      <a href="{% url 'shares:access' %}" class="btn btn-outline-cyan btn-lg">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        I Have a Code
+      </a>
+    </div>
+
+    <!-- Live counter strip -->
+    <div style="display:flex;gap:2rem;justify-content:center;margin-top:2.5rem;flex-wrap:wrap;" class="fade-in fade-in-delay-3">
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--cyan);">AES-256</div>
+        <div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Encryption</div>
+      </div>
+      <div style="width:1px;background:var(--glass-border);"></div>
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--violet);">{{ max_file_size_mb }} MB</div>
+        <div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Max file size</div>
+      </div>
+      <div style="width:1px;background:var(--glass-border);"></div>
+      <div style="text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:var(--pink);">0 KB</div>
+        <div style="font-size:0.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;">Plaintext sent</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     HOW IT WORKS
+════════════════════════════════════ -->
+<section class="section" style="padding-top:1.5rem;padding-bottom:2rem;" data-animate>
+  <div class="container">
+    <div class="steps-row">
+
+      <div class="step-card glass-card fade-in">
+        <div class="step-emoji">📁</div>
+        <h3>Drop your file</h3>
+        <p style="font-size:0.82rem;">Any file type up to {{ max_file_size_mb }} MB. Nothing sent yet.</p>
+      </div>
+
+      <div class="step-card glass-card fade-in fade-in-delay-1">
+        <div class="step-emoji">🔐</div>
+        <h3>Browser encrypts</h3>
+        <p style="font-size:0.82rem;">AES-256-GCM runs entirely in your browser. Ciphertext only leaves your device.</p>
+      </div>
+
+      <div class="step-card glass-card fade-in fade-in-delay-2">
+        <div class="step-emoji">🔢</div>
+        <h3>Get a 6-digit code</h3>
+        <p style="font-size:0.82rem;">Your unique access code appears on screen. Registered users also receive it by email automatically.</p>
+      </div>
+
+      <div class="step-card glass-card fade-in fade-in-delay-3">
+        <div class="step-emoji">🚀</div>
+        <h3>Recipient decrypts</h3>
+        <p style="font-size:0.82rem;">They enter the 6-digit code on the receive page. File decrypts in their browser — no account required.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     UPLOAD CARD
+════════════════════════════════════ -->
+<section class="section" id="upload-section" style="padding-top:1rem;">
+  <div class="container">
+    <div style="max-width:580px;margin:0 auto;">
+
+      <!-- Guest quota notice -->
+      <div class="flex-between mb-2" style="flex-wrap:wrap;gap:0.5rem;">
+        <span class="text-muted" style="font-size:0.82rem;">
+          New user? <strong style="color:var(--text);">1 free share per day.</strong>
+          <a href="{% url 'accounts:register' %}" style="color:var(--cyan);">Register</a> for 10/day.
+        </span>
+        <span class="quota-chip">
+          <strong id="quotaCount">{{ guest_daily_limit }}</strong>&nbsp;share{{ guest_daily_limit|pluralize }} left today
+        </span>
+      </div>
+
+      <div class="glass-card" style="padding:2rem;" id="mainCard">
+
+        <!-- ── Upload area ── -->
+        <div id="uploadArea">
+
+          <!-- Share type selector -->
+          <div class="form-group" style="margin-bottom:0.75rem;">
+            <label class="form-label">What are you sharing?</label>
+            <div class="channel-pills" role="group" id="shareTypeGroup">
+              <button type="button" class="channel-pill active" data-sharetype="file">📄 File</button>
+              <button type="button" class="channel-pill" data-sharetype="folder">📁 Folder</button>
+              <button type="button" class="channel-pill" data-sharetype="document">📝 Document</button>
+            </div>
+          </div>
+
+          <!-- Drop zone -->
+          <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Select a file to share">
+            <input type="file" id="fileInput" aria-label="Select file" />
+            <span class="drop-icon">📤</span>
+            <p class="drop-zone-title">Drop file here or click to browse</p>
+            <p class="drop-zone-sub">Max {{ max_file_size_mb }} MB · Any file type · Encrypted before upload</p>
+          </div>
+
+          <!-- Selected file pill -->
+          <div id="fileInfo" class="file-pill hidden" aria-live="polite">
+            <span class="file-icon">📄</span>
+            <span class="file-name" id="fileName"></span>
+            <span class="file-size" id="fileSize"></span>
+          </div>
+
+          <!-- OTP delivery channel notice -->
+          {% if user.is_authenticated and user.is_fully_verified %}
+          <div id="channelSection" style="margin-top:0.75rem;">
+            <p class="text-dim" style="font-size:0.78rem;display:flex;align-items:center;gap:0.4rem;">
+              📧 Access code will be sent to
+              <strong style="color:var(--cyan);">{{ user.email }}</strong>
+            </p>
+          </div>
+          {% else %}
+          <div id="channelSection" style="display:none;"></div>
+          {% endif %}
+
+          <!-- Error -->
+          <div id="uploadError" class="alert alert-error hidden" role="alert" aria-live="assertive" style="margin-top:1rem;"></div>
+
+          <!-- Progress -->
+          <div id="progressWrap" class="progress-wrap hidden" style="margin-top:1rem;">
+            <p class="progress-label">
+              <span class="spin-ring"></span>
+              <span id="progressLabel">Encrypting…</span>
+            </p>
+            <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-full btn-lg"
+                  id="createShareBtn" disabled style="margin-top:1.25rem;">
+            🔒 Encrypt &amp; Share
+          </button>
+
+          <!-- Expiry notice -->
+          <p class="text-dim text-center" style="margin-top:0.75rem;font-size:0.75rem;">
+            ⏱ Guest links expire in <strong style="color:var(--orange);">1 minute</strong> &mdash;
+            <a href="{% url 'accounts:register' %}" style="color:var(--cyan);">Register</a> for 7-day links
+          </p>
+
+        </div><!-- #uploadArea -->
+
+        <!-- ── Success / OTP result ── -->
+        <div id="resultArea" class="hidden">
+
+          <div class="otp-reveal">
+            <div class="scan-line"></div>
+            <p class="otp-label">Access Code</p>
+            <div class="otp-code" id="otpCode" aria-label="Access code" aria-live="assertive">——————</div>
+            <p id="channelMsg" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;"></p>
+            <div class="otp-timer" aria-label="Code validity">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Share this code with your recipient privately
+            </div>
+            <div class="otp-timer-bar" aria-hidden="true"><div class="otp-timer-fill" id="otpTimerFill"></div></div>
+          </div>
+
+          <div class="alert alert-success" style="margin-top:1.25rem;">
+            ✅ File encrypted and uploaded. Give the 6-digit code to your recipient.
+          </div>
+
+          <div class="glass-card" style="padding:1rem;margin-top:0.75rem;background:rgba(0,0,0,0.2);">
+            <p style="font-size:0.8rem;color:var(--text-muted);">
+              📌 <strong style="color:var(--text);">Recipient goes to:</strong>
+              <a href="{% url 'shares:access' %}" style="color:var(--cyan);">{{ request.get_host }}/shares/access/</a>
+              and enters this code.
+            </p>
+          </div>
+
+          <button type="button" id="shareAnotherBtn"
+                  class="btn btn-ghost btn-full" style="margin-top:1rem;">
+            ↩ Share another file
+          </button>
+
+        </div><!-- #resultArea -->
+
+      </div><!-- .glass-card -->
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     FEATURES STRIP
+════════════════════════════════════ -->
+<section class="section" style="padding-top:1.5rem;" data-animate>
+  <div class="container">
+    <div class="features-grid">
+
+      <div class="feature-card glass-card" data-animate>
+        <div class="feature-icon">🧠</div>
+        <h3>Zero-knowledge</h3>
+        <p>The server never sees your file contents, the OTP in plaintext, or any decryption key.</p>
+      </div>
+
+      <div class="feature-card glass-card" data-animate>
+        <div class="feature-icon violet">📱</div>
+        <h3>Deliver by Email or SMS</h3>
+        <p>Registered users can send the OTP straight to their inbox or phone — no copy-pasting needed.</p>
+      </div>
+
+      <div class="feature-card glass-card" data-animate>
+        <div class="feature-icon">⚡</div>
+        <h3>No account to receive</h3>
+        <p>Recipients only need the 6-digit code. They never log in, install anything, or create an account.</p>
+      </div>
+
+      <div class="feature-card glass-card" data-animate>
+        <div class="feature-icon violet">🛡</div>
+        <h3>AES-256-GCM</h3>
+        <p>Industry-standard authenticated encryption. Tampered ciphertext is rejected before any data is returned.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════
+     GUEST LIMIT OVERLAY (no close)
+════════════════════════════════════ -->
+<div class="modal-backdrop hidden" id="guestLimitOverlay"
+     role="dialog" aria-modal="true"
+     aria-labelledby="guestOverlayTitle" aria-describedby="guestOverlayDesc">
+  <div class="modal-box" style="text-align:center;">
+
+    <div style="font-size:3rem;margin-bottom:0.75rem;" aria-hidden="true">⏳</div>
+    <h2 id="guestOverlayTitle" class="gradient-text">Daily limit reached</h2>
+
+    <p id="guestOverlayDesc" style="margin-top:0.75rem;">
+      You've used your <strong>1 free share</strong> for today.<br>
+      Register for a free account to share up to <strong>10 files per day</strong>.
+    </p>
+
+    <!-- Keep OTP visible so sender can still use it -->
+    <div class="otp-reveal" style="margin:1.5rem 0;">
+      <div class="scan-line"></div>
+      <p class="otp-label">Your share code (still valid)</p>
+      <div class="otp-code" id="overlayOtp" aria-label="Your share access code">——————</div>
+    </div>
+
+    <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-full btn-lg">
+      Register / Sign In for More
+    </a>
+    <p style="font-size:0.72rem;color:var(--text-dim);margin-top:1rem;">
+      Your recipient can still use the code above. This overlay has no close button by design.
+    </p>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const PBKDF2_ITERS = {{ pbkdf2_iterations }};
+  const CSRF_TOKEN   = "{{ csrf_token }}";
+</script>
+<script src="{% static 'js/crypto.js' %}"></script>
+<script src="{% static 'js/uploader.js' %}"></script>
+{% endblock %}

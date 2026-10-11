@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Verify Phone – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card fade-in" style="text-align:center;">
+
+    <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--cyan),var(--violet));border-radius:16px;display:grid;place-items:center;margin:0 auto 1rem;font-size:1.4rem;">📱</div>
+    <h1 style="font-size:1.5rem;">Verify Your Phone</h1>
+    <p style="margin-top:0.4rem;margin-bottom:1.5rem;color:var(--text-muted);">
+      Enter the 6-digit code sent to
+      {% if user_obj and user_obj.phone_number %}<strong style="color:var(--text);">{{ user_obj.phone_number }}</strong>{% else %}your phone{% endif %}.
+      Code expires in 5 minutes.
+    </p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}
+      <div class="alert alert-error">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+      {% endif %}
+      <div class="form-group" style="text-align:left;">
+        <label class="form-label" for="{{ form.otp.id_for_label }}">Verification Code</label>
+        {{ form.otp }}
+        {% if form.otp.errors %}<p class="form-error">{{ form.otp.errors.0 }}</p>{% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg">Verify →</button>
+    </form>
+
+    <div class="auth-divider">Didn't receive it?</div>
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" name="resend" value="1" class="btn btn-ghost btn-full">Resend Code</button>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

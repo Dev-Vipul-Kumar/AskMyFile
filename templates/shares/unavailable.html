@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Link Unavailable – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card" style="text-align:center;">
+    <div style="font-size:3.5rem;margin-bottom:1rem;" aria-hidden="true">
+      {% if reason == "expired" %}⏰{% elif reason == "revoked" %}🚫{% elif reason == "exhausted" %}📥{% else %}❓{% endif %}
+    </div>
+    <h1 style="font-size:1.5rem;" class="gradient-text">
+      {% if reason == "expired" %}Share Expired{% elif reason == "revoked" %}Share Revoked{% elif reason == "exhausted" %}Downloads Exhausted{% else %}Not Found{% endif %}
+    </h1>
+    <p style="margin-top:0.75rem;color:var(--text-muted);">{{ message }}</p>
+    <a href="{% url 'shares:access' %}" class="btn btn-primary" style="margin-top:1.5rem;">Try another code</a>
+    <br>
+    <a href="{% url 'core:landing' %}" class="btn btn-ghost btn-sm" style="margin-top:0.5rem;">Go home</a>
+  </div>
+</div>
+{% endblock %}

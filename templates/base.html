@@ -1,0 +1,258 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="{% block meta_description %}AskMyFile – Share files securely with OTP-based access. No passwords, no accounts needed to receive.{% endblock %}" />
+  <meta name="referrer" content="no-referrer" />
+  <title>{% block title %}AskMyFile – Secure File Sharing{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  <style>
+    /* ── Toast notifications ── */
+    #toast-container {
+      position: fixed;
+      top: 76px;          /* just below the sticky navbar */
+      right: 1.25rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      max-width: 380px;
+      width: calc(100% - 2.5rem);
+      pointer-events: none;
+    }
+    .toast {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      font-family: var(--font);
+      border: 1px solid transparent;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      pointer-events: all;
+      /* enter animation */
+      animation: toast-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+      /* exit animation class added by JS */
+      transition: opacity 0.4s ease, transform 0.4s ease, max-height 0.4s ease,
+                  padding 0.4s ease, margin 0.4s ease;
+      overflow: hidden;
+    }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(60px) scale(0.9); }
+      to   { opacity: 1; transform: translateX(0)    scale(1); }
+    }
+    .toast.toast-out {
+      opacity: 0;
+      transform: translateX(60px) scale(0.9);
+      max-height: 0 !important;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+
+    /* colour variants */
+    .toast-success  { background: rgba(0,255,163,0.12);  color: #00ffa3; border-color: rgba(0,255,163,0.3); }
+    .toast-error    { background: rgba(255,71,87,0.12);  color: #ff4757; border-color: rgba(255,71,87,0.3); }
+    .toast-warning  { background: rgba(245,158,11,0.12); color: #f59e0b; border-color: rgba(245,158,11,0.3); }
+    .toast-info,
+    .toast-         { background: rgba(0,245,255,0.10);  color: #00f5ff; border-color: rgba(0,245,255,0.3); }
+    /* Django sometimes tags messages as just 'info' or 'debug' */
+    .toast-debug    { background: rgba(138,123,255,0.10);color: #8a7bff; border-color: rgba(138,123,255,0.3); }
+
+    .toast-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+    .toast-text { flex: 1; line-height: 1.5; }
+
+    /* progress drain bar at the bottom of each toast */
+    .toast::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 3px;
+      border-radius: 0 0 10px 10px;
+      background: currentColor;
+      opacity: 0.4;
+      width: 100%;
+      animation: toast-drain 3.5s linear forwards;
+    }
+    .toast { position: relative; }
+    @keyframes toast-drain {
+      from { width: 100%; }
+      to   { width: 0%;   }
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: currentColor;
+      opacity: 0.6;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
+      margin-top: 1px;
+    }
+    .toast-close:hover { opacity: 1; }
+
+    @media (max-width: 479px) {
+      #toast-container { right: 0.75rem; max-width: calc(100% - 1.5rem); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .toast         { animation: none; }
+      .toast::after  { animation: none; width: 0; }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<canvas id="particles-canvas" aria-hidden="true"></canvas>
+
+<div class="page-wrapper">
+
+  <!-- ═══ Navbar ═══ -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-inner">
+
+      <a class="navbar-brand" href="{% url 'core:landing' %}" aria-label="AskMyFile home">
+        <span class="brand-icon" aria-hidden="true">🔒</span>
+        <span class="brand-name">Ask<span>My</span>File</span>
+      </a>
+
+      <button class="navbar-toggle" id="navToggle"
+              aria-expanded="false" aria-controls="navLinks" aria-label="Toggle navigation">
+        ☰
+      </button>
+
+      <ul class="navbar-links" id="navLinks" role="list">
+        <li><a href="{% url 'core:landing' %}">Home</a></li>
+        <li><a href="{% url 'shares:access' %}">Receive File</a></li>
+        {% if user.is_authenticated and user.is_fully_verified %}
+          <li><a href="{% url 'billing:plans' %}">Plans</a></li>
+          <li>
+            <form method="post" action="{% url 'accounts:logout' %}" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-ghost btn-sm">Sign Out</button>
+            </form>
+          </li>
+        {% else %}
+          <li><a href="{% url 'billing:plans' %}">Plans</a></li>
+          <li><a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-sm">Sign In</a></li>
+          <li><a href="{% url 'accounts:register' %}" class="btn btn-primary btn-sm">Register</a></li>
+        {% endif %}
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ═══ Flash messages — auto-dismiss after 3.5 s ═══ -->
+  {% if messages %}
+  <div id="toast-container" role="alert" aria-live="polite">
+    {% for message in messages %}
+    <div class="toast toast-{{ message.tags|default:'info' }}">
+      <span class="toast-icon">
+        {% if 'success' in message.tags %}✅
+        {% elif 'error' in message.tags %}⚠️
+        {% elif 'warning' in message.tags %}⚠
+        {% else %}ℹ️
+        {% endif %}
+      </span>
+      <span class="toast-text">{{ message }}</span>
+      <button class="toast-close" aria-label="Dismiss">&times;</button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ═══ Page content ═══ -->
+  <main id="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ═══ Footer ═══ -->
+  <footer>
+    <div class="container">
+      <p style="margin-bottom:0.4rem;">
+        &copy; 2026 AskMyFile &mdash;
+        <a href="{% url 'core:privacy' %}">Privacy</a> &middot;
+        <a href="{% url 'core:terms' %}">Terms</a> &middot;
+        <a href="{% url 'core:help' %}">Help</a>
+      </p>
+      <p style="font-size:0.72rem;color:var(--text-dim);">
+        Files are encrypted in your browser · Server stores only ciphertext · OTP never stored in plaintext
+      </p>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  /* ── Navbar toggle ── */
+  const _t = document.getElementById('navToggle');
+  const _l = document.getElementById('navLinks');
+  if (_t && _l) {
+    _t.addEventListener('click', () => {
+      const open = _l.classList.toggle('open');
+      _t.setAttribute('aria-expanded', open);
+    });
+  }
+
+  /* ── Toast auto-dismiss ── */
+  (function () {
+    const AUTO_MS  = 3500;   // start fade-out after 3.5 s
+    const FADE_MS  = 400;    // CSS transition duration
+
+    function dismissToast(toast) {
+      if (toast._dismissed) return;
+      toast._dismissed = true;
+      toast.classList.add('toast-out');
+      setTimeout(() => toast.remove(), FADE_MS);
+    }
+
+    document.querySelectorAll('.toast').forEach((toast, i) => {
+      // Stagger: each toast waits a little longer so they don't vanish simultaneously
+      const delay = AUTO_MS + i * 300;
+      const timer = setTimeout(() => dismissToast(toast), delay);
+
+      // Manual close button
+      const btn = toast.querySelector('.toast-close');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          clearTimeout(timer);
+          dismissToast(toast);
+        });
+      }
+
+      // Pause the drain bar + timer on hover
+      toast.addEventListener('mouseenter', () => {
+        toast.style.animationPlayState = 'paused';    // pauses ::after drain
+        clearTimeout(timer);
+      });
+      toast.addEventListener('mouseleave', () => {
+        toast.style.animationPlayState = 'running';
+        // Resume with remaining time approximation (just restart from current)
+        const newTimer = setTimeout(() => dismissToast(toast), AUTO_MS);
+        toast._resumeTimer = newTimer;
+      });
+    });
+  })();
+
+  /* ── Scroll-reveal ── */
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('[data-animate]').forEach(el => io.observe(el));
+  } else {
+    document.querySelectorAll('[data-animate]').forEach(el => el.classList.add('in-view'));
+  }
+</script>
+<script src="{% static 'js/particles.js' %}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

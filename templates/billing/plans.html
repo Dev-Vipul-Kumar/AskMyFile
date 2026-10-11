@@ -1,0 +1,238 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Plans – AskMyFile{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:3rem;">
+      <span class="neon-badge" style="margin-bottom:1rem;display:inline-block;">💎 Subscription Plans</span>
+      <h1>Upgrade your sharing</h1>
+      <p class="lead" style="margin-top:0.75rem;">
+        More daily shares. Longer link expiry. Same zero-knowledge security.
+      </p>
+    </div>
+
+    <!-- Current plan notice -->
+    {% if user_subscription %}
+    <div class="alert alert-info" style="max-width:640px;margin:0 auto 2rem;text-align:center;">
+      ✅ You're on <strong>{{ user_subscription.plan.name }}</strong>
+      ({{ user_subscription.plan.daily_share_limit }} shares/day).
+      {% if user_subscription.period_end %}
+        Renews <strong>{{ user_subscription.period_end|date:"M d, Y" }}</strong>.
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Plan cards -->
+    <div class="plans-grid" style="max-width:980px;margin:0 auto;">
+      {% for plan in plans %}
+      <div class="plan-card glass-card {% if plan.slug == 'plus' %}featured{% endif %} fade-in"
+           style="animation-delay:{{ forloop.counter0 }}00ms;">
+
+        {% if plan.slug == 'plus' %}
+        <div style="margin-bottom:0.5rem;"><span class="neon-badge">⭐ Most Popular</span></div>
+        {% endif %}
+
+        <div class="plan-name gradient-text">{{ plan.name }}</div>
+
+        <div class="plan-price">
+          {% if plan.is_free %}
+            Free
+          {% else %}
+            ₹{{ plan.price_amount }}<small style="font-size:0.85rem;font-weight:400;color:var(--text-dim);">/month</small>
+          {% endif %}
+        </div>
+
+        <div class="plan-limit">{{ plan.daily_share_limit }} shares / day</div>
+        <p style="font-size:0.82rem;color:var(--text-dim);margin:0.5rem 0 1rem;">{{ plan.description }}</p>
+
+        <!-- CTA -->
+        {% if plan.is_free %}
+          {% if user.is_authenticated %}
+            <button class="btn btn-ghost btn-full" style="cursor:default;opacity:0.6;margin-top:auto;" disabled>
+              Current Free Plan
+            </button>
+          {% else %}
+            <a href="{% url 'accounts:register' %}" class="btn btn-outline-cyan btn-full" style="margin-top:auto;">
+              Get Started Free
+            </a>
+          {% endif %}
+
+        {% else %}
+          {% if not user.is_authenticated %}
+            <a href="{% url 'accounts:login' %}?next={% url 'billing:plans' %}"
+               class="btn btn-primary btn-full" style="margin-top:auto;">
+              Sign In to Subscribe
+            </a>
+
+          {% elif user_subscription and user_subscription.plan.slug == plan.slug %}
+            <button class="btn btn-ghost btn-full" style="cursor:default;opacity:0.6;margin-top:auto;" disabled>
+              ✅ Current Plan
+            </button>
+
+          {% else %}
+            <button
+              class="btn btn-primary btn-full pay-btn"
+              style="margin-top:auto;"
+              data-plan-id="{{ plan.id }}"
+              data-plan-name="{{ plan.name }}"
+              data-amount="{{ plan.price_amount }}"
+              data-currency="{{ plan.currency }}">
+              Upgrade to {{ plan.name }} — ₹{{ plan.price_amount }}/mo
+            </button>
+          {% endif %}
+        {% endif %}
+
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="text-dim text-center mt-3" style="font-size:0.78rem;">
+      Secured by Razorpay · Payments processed in INR · Cancel anytime via support
+    </p>
+
+    <!-- Loading overlay during checkout -->
+    <div id="payLoading" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);
+         backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center;
+         flex-direction:column;gap:1rem;">
+      <div class="spin-ring" style="width:40px;height:40px;border-width:4px;"></div>
+      <p style="color:var(--text);font-size:0.95rem;" id="payLoadingMsg">Preparing checkout…</p>
+    </div>
+
+    <!-- Error toast -->
+    <div id="payError" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;
+         background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.4);
+         color:var(--red);padding:0.85rem 1.25rem;border-radius:10px;
+         font-size:0.88rem;z-index:9999;max-width:380px;backdrop-filter:blur(12px);">
+      <span id="payErrorMsg"></span>
+    </div>
+
+  </div>
+</section>
+
+<!-- Razorpay checkout JS (loaded from their CDN) -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+  const RAZORPAY_KEY = "{{ razorpay_key_id }}";
+  const USER_NAME    = "{{ request.user.full_name|escapejs }}";
+  const USER_EMAIL   = "{{ request.user.email|escapejs }}";
+  const CSRF         = "{{ csrf_token }}";
+
+  function getCsrf() { return CSRF; }
+
+  function showLoading(msg) {
+    document.getElementById("payLoadingMsg").textContent = msg || "Processing…";
+    document.getElementById("payLoading").style.display  = "flex";
+  }
+  function hideLoading() {
+    document.getElementById("payLoading").style.display = "none";
+  }
+  function showError(msg) {
+    const el = document.getElementById("payError");
+    document.getElementById("payErrorMsg").textContent = msg;
+    el.style.display = "block";
+    setTimeout(() => { el.style.display = "none"; }, 5000);
+  }
+
+  document.querySelectorAll(".pay-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const planId   = btn.dataset.planId;
+      const planName = btn.dataset.planName;
+
+      // Disable all pay buttons to prevent double-click
+      document.querySelectorAll(".pay-btn").forEach(b => b.disabled = true);
+      showLoading("Creating your order…");
+
+      // ── Step 1: Create Razorpay order server-side ──
+      let orderData;
+      try {
+        const res = await fetch("/billing/create-order/", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+          body:    JSON.stringify({ plan_id: planId }),
+        });
+        orderData = await res.json();
+      } catch {
+        hideLoading();
+        document.querySelectorAll(".pay-btn").forEach(b => b.disabled = false);
+        showError("Network error. Please try again.");
+        return;
+      }
+
+      if (!orderData.ok) {
+        hideLoading();
+        document.querySelectorAll(".pay-btn").forEach(b => b.disabled = false);
+        showError(orderData.error || "Could not initiate payment.");
+        return;
+      }
+
+      hideLoading();
+
+      // ── Step 2: Open Razorpay checkout modal ──
+      const options = {
+        key:         RAZORPAY_KEY,
+        amount:      orderData.amount,
+        currency:    orderData.currency,
+        name:        "AskMyFile",
+        description: `${planName} — Monthly Subscription`,
+        image:       "",   // add your logo URL here if you have one
+        order_id:    orderData.order_id,
+        prefill: {
+          name:  USER_NAME,
+          email: USER_EMAIL,
+        },
+        theme: {
+          color: "#00f5ff",
+        },
+        modal: {
+          ondismiss: function() {
+            document.querySelectorAll(".pay-btn").forEach(b => b.disabled = false);
+          },
+        },
+
+        // ── Step 3: Verify payment on success ──
+        handler: async function(response) {
+          showLoading("Verifying payment…");
+          try {
+            const vRes = await fetch("/billing/verify/", {
+              method:  "POST",
+              headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+              body: JSON.stringify({
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
+                subscription_id:     orderData.subscription_id,
+              }),
+            });
+            const vData = await vRes.json();
+            hideLoading();
+            if (vData.ok) {
+              window.location.href = vData.redirect || "/billing/payment/success/";
+            } else {
+              showError(vData.error || "Payment verification failed. Contact support.");
+              document.querySelectorAll(".pay-btn").forEach(b => b.disabled = false);
+            }
+          } catch {
+            hideLoading();
+            showError("Verification network error. Please contact support if amount was deducted.");
+            document.querySelectorAll(".pay-btn").forEach(b => b.disabled = false);
+          }
+        },
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.on("payment.failed", function(resp) {
+        hideLoading();
+        showError(`Payment failed: ${resp.error.description}`);
+        document.querySelectorAll(".pay-btn").forEach(b => b.disabled = false);
+        window.location.href = "/billing/payment/failure/";
+      });
+      rzp.open();
+    });
+  });
+</script>
+{% endblock %}

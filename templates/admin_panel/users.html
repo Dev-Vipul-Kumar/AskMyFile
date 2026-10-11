@@ -1,0 +1,209 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Users{% endblock %}
+{% block page_title %}Users ({{ total_count }}){% endblock %}
+
+{% block content %}
+
+<!-- Top bar: search + Add User button -->
+<div class="admin-search">
+  <form method="get" style="display:flex;flex:1;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+    <input type="text" name="q" value="{{ q }}"
+           placeholder="Search by email, name, or phone…"
+           style="flex:1;min-width:200px;" />
+    <input type="hidden" name="filter" value="{{ filt }}" />
+    <button type="submit" class="btn btn-primary btn-sm">🔍 Search</button>
+  </form>
+  <a href="{% url 'admin_panel:user_create' %}" class="btn btn-primary btn-sm">
+    ＋ Add User
+  </a>
+</div>
+
+<!-- Filter pills -->
+<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+  <a href="?filter=all"        class="filter-pill {% if filt == 'all' %}active{% endif %}">All ({{ total_count }})</a>
+  <a href="?filter=verified"   class="filter-pill {% if filt == 'verified' %}active{% endif %}">✅ Verified</a>
+  <a href="?filter=unverified" class="filter-pill {% if filt == 'unverified' %}active{% endif %}">⚠ Unverified</a>
+  <a href="?filter=staff"      class="filter-pill {% if filt == 'staff' %}active{% endif %}">⭐ Staff</a>
+  <a href="?filter=subscribed" class="filter-pill {% if filt == 'subscribed' %}active{% endif %}">💳 Subscribed</a>
+</div>
+
+<div class="admin-section" style="padding:0;">
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Email</th>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Verification</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Shares</th>
+          <th>Joined</th>
+          <th style="min-width:200px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr id="user-row-{{ u.id }}">
+          <td class="cell-mono" style="color:var(--text-dim);font-size:0.75rem;">{{ u.id }}</td>
+
+          <td>
+            <a href="{% url 'admin_panel:user_detail' u.id %}" class="cell-email">
+              {{ u.email }}
+            </a>
+          </td>
+
+          <td><strong>{{ u.display_name|default:"—" }}</strong></td>
+
+          <td class="cell-mono" style="font-size:0.78rem;">
+            {{ u.phone_number|default:"—" }}
+          </td>
+
+          <td>
+            {% if u.email_verified and u.phone_verified %}
+              <span class="chip-ok">✓ Both</span>
+            {% elif u.email_verified %}
+              <span class="chip-warn">Email only</span>
+            {% elif u.phone_verified %}
+              <span class="chip-warn">Phone only</span>
+            {% else %}
+              <span class="chip-no">None</span>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if u.is_staff %}
+              <span class="chip-warn">⭐ Staff</span>
+            {% else %}
+              <span style="color:var(--text-dim);font-size:0.8rem;">User</span>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if u.is_active %}
+              <span class="chip-ok">Active</span>
+            {% else %}
+              <span class="chip-no">Inactive</span>
+            {% endif %}
+          </td>
+
+          <td style="color:var(--cyan);font-weight:700;">{{ u.share_count }}</td>
+
+          <td style="font-size:0.75rem;color:var(--text-dim);white-space:nowrap;">
+            {{ u.created_at|date:"M d, Y" }}
+          </td>
+
+          <!-- ── Inline action buttons ── -->
+          <td>
+            <div style="display:flex;gap:0.3rem;flex-wrap:wrap;">
+
+              <!-- View -->
+              <a href="{% url 'admin_panel:user_detail' u.id %}"
+                 class="btn btn-ghost btn-sm"
+                 title="View full profile">👁</a>
+
+              <!-- Edit -->
+              <a href="{% url 'admin_panel:user_edit' u.id %}"
+                 class="btn btn-ghost btn-sm"
+                 title="Edit user"
+                 style="color:var(--cyan);border-color:rgba(0,245,255,0.25);">✏</a>
+
+              <!-- Quick toggle active (POST) -->
+              <form method="post" action="{% url 'admin_panel:user_detail' u.id %}"
+                    style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_active" />
+                <button type="submit"
+                        class="btn btn-sm {% if u.is_active %}btn-ghost{% else %}btn-ghost{% endif %}"
+                        style="color:{% if u.is_active %}var(--orange){% else %}var(--green){% endif %};
+                               border-color:{% if u.is_active %}rgba(255,149,0,0.3){% else %}rgba(0,255,163,0.3){% endif %};"
+                        title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %}">
+                  {% if u.is_active %}🔒{% else %}✅{% endif %}
+                </button>
+              </form>
+
+              <!-- Delete (with confirmation modal trigger) -->
+              {% if u != request.user %}
+              <button type="button"
+                      class="btn btn-sm btn-danger"
+                      title="Delete user permanently"
+                      onclick="confirmDelete({{ u.id }}, '{{ u.email|escapejs }}')">
+                🗑
+              </button>
+              {% endif %}
+
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="10" style="text-align:center;padding:3rem;color:var(--text-dim);">
+            No users found. <a href="{% url 'admin_panel:user_create' %}" style="color:var(--cyan);">Create the first one →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Delete confirmation modal ── -->
+<div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);
+     backdrop-filter:blur(8px);z-index:999;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:#161b27;border:1px solid var(--glass-border);border-radius:16px;
+              padding:2rem;max-width:420px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
+
+    <div style="text-align:center;margin-bottom:1.25rem;">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem;">⚠️</div>
+      <h3 style="color:var(--text);margin-bottom:0.5rem;">Delete User?</h3>
+      <p style="color:var(--text-muted);font-size:0.88rem;">
+        You are about to permanently delete:<br>
+        <strong id="deleteUserEmail" style="color:var(--red);"></strong>
+      </p>
+      <p style="color:var(--text-dim);font-size:0.78rem;margin-top:0.5rem;">
+        This will also delete all their shares, subscriptions, and verification data. This action cannot be undone.
+      </p>
+    </div>
+
+    <form id="deleteForm" method="post" action="">
+      {% csrf_token %}
+      <div style="display:flex;gap:0.75rem;">
+        <button type="button" onclick="closeDeleteModal()"
+                class="btn btn-ghost btn-full">Cancel</button>
+        <button type="submit"
+                class="btn btn-danger btn-full">Delete Permanently</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function confirmDelete(userId, email) {
+    document.getElementById("deleteUserEmail").textContent = email;
+    document.getElementById("deleteForm").action = "/admin-panel/users/" + userId + "/delete/";
+    const modal = document.getElementById("deleteModal");
+    modal.style.display = "flex";
+    // Focus the cancel button for accessibility
+    modal.querySelector("button[type=button]").focus();
+  }
+
+  function closeDeleteModal() {
+    document.getElementById("deleteModal").style.display = "none";
+  }
+
+  // Close on backdrop click
+  document.getElementById("deleteModal").addEventListener("click", function(e) {
+    if (e.target === this) closeDeleteModal();
+  });
+
+  // Close on Escape key
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeDeleteModal();
+  });
+</script>
+{% endblock %}

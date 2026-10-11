@@ -1,0 +1,149 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Edit — {{ target.email }}{% endblock %}
+{% block page_title %}Edit User{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;">
+
+  <div style="display:flex;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+    <a href="{% url 'admin_panel:user_detail' target.id %}" class="btn btn-ghost btn-sm">← Back to Profile</a>
+    <a href="{% url 'admin_panel:users' %}" class="btn btn-ghost btn-sm">All Users</a>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-error" role="alert">⚠ {{ error }}</div>
+  {% endif %}
+
+  <div class="admin-section" style="padding:1.75rem;">
+
+    <!-- User identity badge -->
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.75rem;
+                padding-bottom:1.25rem;border-bottom:1px solid var(--glass-border);">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,var(--cyan),var(--violet));
+                  border-radius:50%;display:grid;place-items:center;
+                  font-size:1.2rem;font-weight:800;color:#000;flex-shrink:0;">
+        {{ target.full_name|first|upper }}
+      </div>
+      <div>
+        <div style="font-weight:700;color:var(--text);">{{ target.email }}</div>
+        <div style="font-size:0.75rem;color:var(--text-dim);">
+          Joined {{ target.created_at|date:"M d, Y" }} &middot; ID #{{ target.id }}
+        </div>
+      </div>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Profile fields -->
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                color:var(--text-dim);margin-bottom:0.75rem;">Profile Information</p>
+
+      <div class="form-group">
+        <label class="form-label" for="display_name">Display Name</label>
+        <input type="text" name="display_name" id="display_name"
+               value="{{ target.display_name }}"
+               class="form-input" placeholder="Full name" autocomplete="off" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="phone_number">Phone Number</label>
+        <input type="tel" name="phone_number" id="phone_number"
+               value="{{ target.phone_number }}"
+               class="form-input" placeholder="+91XXXXXXXXXX" autocomplete="off" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="new_password">New Password</label>
+        <input type="password" name="new_password" id="new_password"
+               class="form-input" placeholder="Leave blank to keep current password"
+               autocomplete="new-password" />
+        <p class="form-hint">Only fill this if you want to change the password. Minimum 8 characters.</p>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:1.5rem 0;" />
+
+      <!-- Verification flags -->
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                color:var(--text-dim);margin-bottom:0.75rem;">Verification Status</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.25rem;">
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;
+                      background:rgba(0,255,163,0.04);border:1px solid rgba(0,255,163,0.15);
+                      border-radius:8px;padding:0.75rem;">
+          <input type="checkbox" name="email_verified" value="1"
+                 {% if target.email_verified %}checked{% endif %}
+                 style="width:16px;height:16px;accent-color:var(--green);" />
+          <span style="font-size:0.85rem;color:var(--text);">📧 Email Verified</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;
+                      background:rgba(0,255,163,0.04);border:1px solid rgba(0,255,163,0.15);
+                      border-radius:8px;padding:0.75rem;">
+          <input type="checkbox" name="phone_verified" value="1"
+                 {% if target.phone_verified %}checked{% endif %}
+                 style="width:16px;height:16px;accent-color:var(--green);" />
+          <span style="font-size:0.85rem;color:var(--text);">📱 Phone Verified</span>
+        </label>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--glass-border);margin:1.5rem 0;" />
+
+      <!-- Permissions & status -->
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+                color:var(--text-dim);margin-bottom:0.75rem;">Account Permissions</p>
+
+      <div style="display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1.5rem;">
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;">
+          <input type="checkbox" name="is_active" value="1"
+                 {% if target.is_active %}checked{% endif %}
+                 style="width:16px;height:16px;accent-color:var(--cyan);" />
+          <span style="font-size:0.88rem;color:var(--text);">
+            <strong>Active</strong>
+            <span style="color:var(--text-dim);"> — account can sign in</span>
+          </span>
+        </label>
+
+        {% if target != request.user %}
+        <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;">
+          <input type="checkbox" name="is_staff" value="1"
+                 {% if target.is_staff %}checked{% endif %}
+                 style="width:16px;height:16px;accent-color:var(--admin-accent);" />
+          <span style="font-size:0.88rem;color:var(--text);">
+            <strong style="color:var(--admin-accent);">Staff / Admin</strong>
+            <span style="color:var(--text-dim);"> — grants admin panel access</span>
+          </span>
+        </label>
+        {% else %}
+        <p style="font-size:0.78rem;color:var(--text-dim);font-style:italic;">
+          ⚠ You cannot change your own staff status.
+        </p>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;gap:0.75rem;">
+        <a href="{% url 'admin_panel:user_detail' target.id %}" class="btn btn-ghost" style="flex:1;">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="flex:2;">
+          💾 Save Changes
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Danger zone -->
+  {% if target != request.user %}
+  <div style="margin-top:1.25rem;background:rgba(255,71,87,0.04);border:1px solid rgba(255,71,87,0.2);
+              border-radius:var(--radius);padding:1.25rem;">
+    <p style="font-size:0.88rem;font-weight:700;color:var(--red);margin-bottom:0.5rem;">⚠ Danger Zone</p>
+    <p style="font-size:0.8rem;color:var(--text-dim);margin-bottom:0.75rem;">
+      Permanently delete this user and all their data. This cannot be undone.
+    </p>
+    <form method="post" action="{% url 'admin_panel:user_delete' target.id %}"
+          onsubmit="return confirm('Permanently delete {{ target.email|escapejs }} and all their data?')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-sm">🗑 Delete This User</button>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

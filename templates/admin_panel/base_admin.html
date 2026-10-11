@@ -1,0 +1,396 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{% block title %}Admin Panel{% endblock %} — AskMyFile</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  <style>
+    /* ── Admin-specific overrides ── */
+    :root {
+      --admin-accent: #f59e0b;
+      --admin-accent-dim: rgba(245,158,11,0.12);
+      --sidebar-w: 240px;
+    }
+
+    /* ─── Remove the dark vignette / corner effect from main.css ─── */
+    body::before { display: none !important; }
+    /* Also make the admin background solid, no gradient noise */
+    body { background: #0d1117 !important; }
+
+    .admin-layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .admin-sidebar {
+      width: var(--sidebar-w);
+      background: rgba(6,10,18,0.97);
+      border-right: 1px solid var(--glass-border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+    .sidebar-brand {
+      padding: 1.25rem 1.25rem 1rem;
+      border-bottom: 1px solid var(--glass-border);
+    }
+    .sidebar-brand-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--admin-accent);
+      margin-bottom: 0.3rem;
+    }
+    .sidebar-brand-name {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .sidebar-brand-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg,var(--admin-accent),var(--orange));
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 0.9rem;
+    }
+    .sidebar-nav { flex: 1; padding: 0.75rem 0; }
+    .sidebar-section {
+      padding: 0.4rem 1.25rem 0.2rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 0.75rem;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: all var(--transition);
+      text-decoration: none;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-link:hover  { color: var(--text); background: var(--glass-hover); }
+    .sidebar-link.active { color: var(--admin-accent); border-left-color: var(--admin-accent); background: var(--admin-accent-dim); }
+    .sidebar-link .icon  { width: 18px; text-align: center; font-size: 1rem; flex-shrink: 0; }
+    .sidebar-badge {
+      margin-left: auto;
+      background: rgba(245,158,11,0.2);
+      color: var(--admin-accent);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+    }
+    .sidebar-footer {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--glass-border);
+    }
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+    .sidebar-avatar {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg,var(--admin-accent),var(--orange));
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 0.8rem; font-weight: 700; color: #000;
+    }
+    .sidebar-user-name  { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+    .sidebar-user-email { font-size: 0.7rem;  color: var(--text-dim); }
+
+    /* Main area */
+    .admin-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .admin-topbar {
+      background: rgba(6,10,18,0.8);
+      border-bottom: 1px solid var(--glass-border);
+      backdrop-filter: blur(16px);
+      padding: 0.75rem 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .admin-topbar-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+    .admin-topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+    .admin-content { padding: 1.75rem; flex: 1; }
+
+    /* Stat cards */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .stat-card {
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      background: var(--stat-color, var(--cyan-dim));
+      filter: blur(20px);
+      opacity: 0.4;
+    }
+    .stat-icon   { font-size: 1.4rem; margin-bottom: 0.6rem; display: block; }
+    .stat-value  { font-size: 1.9rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-label  { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-change { font-size: 0.75rem; color: var(--green); margin-top: 0.25rem; }
+
+    /* Data table */
+    .admin-table-wrap { overflow-x: auto; }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.855rem;
+    }
+    .admin-table th {
+      text-align: left;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--glass-border);
+      white-space: nowrap;
+    }
+    .admin-table td {
+      padding: 0.65rem 0.9rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+    .admin-table tr:hover td { background: var(--glass-hover); }
+    .admin-table td strong   { color: var(--text); }
+    .cell-email  { color: var(--cyan); font-size: 0.82rem; }
+    .cell-mono   { font-family: var(--mono); font-size: 0.8rem; }
+
+    /* Admin search bar */
+    .admin-search {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .admin-search input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      padding: 0.55rem 0.9rem;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .admin-search input:focus { border-color: var(--admin-accent); }
+    .filter-pill {
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--transition);
+    }
+    .filter-pill:hover  { color: var(--text); border-color: rgba(255,255,255,0.2); }
+    .filter-pill.active { background: var(--admin-accent-dim); color: var(--admin-accent); border-color: rgba(245,158,11,0.4); }
+
+    /* Section card */
+    .admin-section {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .admin-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .admin-section-title { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+
+    /* Verified / unverified chips */
+    .chip-ok  { background:rgba(0,255,163,0.1); color:var(--green); border-radius:999px; padding:0.1rem 0.55rem; font-size:0.7rem; font-weight:700; }
+    .chip-no  { background:rgba(255,71,87,0.1); color:var(--red);   border-radius:999px; padding:0.1rem 0.55rem; font-size:0.7rem; font-weight:700; }
+    .chip-warn{ background:rgba(245,158,11,0.1);color:var(--orange); border-radius:999px; padding:0.1rem 0.55rem; font-size:0.7rem; font-weight:700; }
+
+    /* Mobile sidebar toggle */
+    .sidebar-toggle {
+      display: none;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+    @media (max-width: 900px) {
+      .admin-sidebar { position: fixed; left: -260px; transition: left 0.3s; }
+      .admin-sidebar.open { left: 0; box-shadow: 4px 0 40px rgba(0,0,0,0.6); }
+      .sidebar-toggle { display: block; }
+      .admin-content { padding: 1rem; }
+    }
+  </style>
+</head>
+<body style="background:var(--bg);">
+<canvas id="particles-canvas" aria-hidden="true" style="opacity:0.2;"></canvas>
+
+<div class="admin-layout">
+
+  <!-- ═══ Sidebar ═══ -->
+  <aside class="admin-sidebar" id="adminSidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-label">Admin Panel</div>
+      <div class="sidebar-brand-name">
+        <span class="sidebar-brand-icon">⚙</span>
+        AskMyFile
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section">Overview</div>
+      <a href="{% url 'admin_panel:dashboard' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <span class="icon">📊</span> Dashboard
+      </a>
+
+      <div class="sidebar-section">Content</div>
+      <a href="{% url 'admin_panel:shares' %}"
+         class="sidebar-link {% if 'share' in request.resolver_match.url_name %}active{% endif %}">
+        <span class="icon">📁</span> All Shares
+      </a>
+      <a href="{% url 'admin_panel:admin_share' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'admin_share' %}active{% endif %}">
+        <span class="icon">⬆</span> Share a File
+        <span class="sidebar-badge">∞</span>
+      </a>
+
+      <div class="sidebar-section">Users</div>
+      <a href="{% url 'admin_panel:users' %}"
+         class="sidebar-link {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+        <span class="icon">👥</span> All Users
+      </a>
+
+      <div class="sidebar-section">Billing</div>
+      <a href="{% url 'admin_panel:subscriptions' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'subscriptions' %}active{% endif %}">
+        <span class="icon">💳</span> Subscriptions
+      </a>
+      <a href="{% url 'admin_panel:plans' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'plans' %}active{% endif %}">
+        <span class="icon">📋</span> Plans
+      </a>
+
+      <div class="sidebar-section">System</div>
+      <a href="{% url 'admin_panel:quota' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'quota' %}active{% endif %}">
+        <span class="icon">⏱</span> Quota Manager
+      </a>
+      <a href="/admin/" class="sidebar-link" target="_blank">
+        <span class="icon">🔧</span> Django Admin
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar">{{ request.user.full_name|first|upper }}</div>
+        <div>
+          <div class="sidebar-user-name">{{ request.user.full_name }}</div>
+          <div class="sidebar-user-email">{{ request.user.email }}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.5rem;">
+        <a href="/" class="btn btn-ghost btn-sm" style="flex:1;font-size:0.75rem;">← Site</a>
+        <form method="post" action="{% url 'accounts:logout' %}" style="flex:1;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm" style="width:100%;font-size:0.75rem;">Sign Out</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ Main ═══ -->
+  <div class="admin-main">
+
+    <div class="admin-topbar">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+        <span class="admin-topbar-title">{% block page_title %}Admin Panel{% endblock %}</span>
+      </div>
+      <div class="admin-topbar-right">
+        <span style="font-size:0.72rem;padding:0.2rem 0.6rem;background:rgba(245,158,11,0.12);color:var(--admin-accent);border-radius:999px;border:1px solid rgba(245,158,11,0.3);">
+          ⚡ Staff
+        </span>
+        <span class="text-dim" style="font-size:0.75rem;">{{ request.user.email }}</span>
+      </div>
+    </div>
+
+    {% if messages %}
+    <div style="padding:0.75rem 1.75rem 0;">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} fade-in">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="admin-content">
+      {% block content %}{% endblock %}
+    </div>
+
+  </div>
+</div>
+
+<script src="{% static 'js/particles.js' %}"></script>
+<script>
+  const toggle  = document.getElementById("sidebarToggle");
+  const sidebar = document.getElementById("adminSidebar");
+  if (toggle && sidebar) {
+    toggle.addEventListener("click", () => sidebar.classList.toggle("open"));
+  }
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>
