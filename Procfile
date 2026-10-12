@@ -1,1 +1,1 @@
-web: gunicorn AskMyFile.wsgi --log-file -
+web: gunicorn AskMyFile.wsgi
