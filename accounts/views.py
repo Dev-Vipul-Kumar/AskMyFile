@@ -34,7 +34,11 @@ def _send_email_verification(request, user: User) -> None:
     raw_token = VerificationChallenge.create_for_user(
         user, VerificationChallenge.CHANNEL_EMAIL, ttl_minutes=ttl
     )
-    verify_url = request.build_absolute_uri(f"/accounts/verify-email/{raw_token}/")
+    # Use SITE_URL so the link always points to the live domain, not the
+    # internal proxy address (127.0.0.1) that request.build_absolute_uri()
+    # can return when running behind Render's load balancer.
+    site_url  = getattr(settings, "SITE_URL", "").rstrip("/")
+    verify_url = f"{site_url}/accounts/verify-email/{raw_token}/"
     try:
         send_mail(
             subject="Verify your AskMyFile email address",
@@ -48,7 +52,7 @@ def _send_email_verification(request, user: User) -> None:
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
-            fail_silently=False,
+            fail_silently=True,   # never crash the request if email fails
         )
         logger.info("Verification email sent to %s", user.email)
     except Exception as exc:
@@ -310,7 +314,7 @@ def password_reset_request(request):
             raw_token = VerificationChallenge.create_for_user(
                 user, VerificationChallenge.CHANNEL_PASSWORD_RESET, ttl_minutes=ttl
             )
-            reset_url = request.build_absolute_uri(f"/accounts/password-reset/{raw_token}/")
+            reset_url = f"{getattr(settings, 'SITE_URL', '').rstrip('/')}/accounts/password-reset/{raw_token}/"
             try:
                 send_mail(
                     subject="Reset your AskMyFile password",
@@ -324,9 +328,8 @@ def password_reset_request(request):
                     ),
                     from_email=settings.DEFAULT_FROM_EMAIL,
                     recipient_list=[user.email],
-                    fail_silently=False,
+                    fail_silently=True,   # never crash the request if email fails
                 )
-                logger.info("Password reset email sent to %s", user.email)
             except Exception as exc:
                 logger.error("Password reset email FAILED for %s: %s", user.email, exc)
         except User.DoesNotExist:

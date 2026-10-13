@@ -69,9 +69,8 @@ def deliver_otp(share: Share, raw_otp: str, channel: str, user=None) -> None:
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
-                fail_silently=False,
+                fail_silently=True,   # never crash the request if email fails
             )
-            logger.info("Share OTP emailed to %s for share #%s", user.email, share.pk)
         except Exception as exc:
             logger.error("OTP email FAILED for share #%s to %s: %s", share.pk, user.email, exc)
 

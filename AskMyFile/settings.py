@@ -136,6 +136,7 @@ EMAIL_USE_SSL   = os.environ.get("EMAIL_USE_SSL",  "False") == "True"
 EMAIL_HOST_USER     = os.environ.get("EMAIL_HOST_USER",     "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL  = os.environ.get("DEFAULT_FROM_EMAIL",  "AskMyFile <noreply@askmyfile.app>")
+EMAIL_TIMEOUT   = int(os.environ.get("EMAIL_TIMEOUT", "10"))  # 10s max — prevents worker kill
 
 # ── Cookie / CSRF security ────────────────────────────────────────────────────
 SESSION_COOKIE_HTTPONLY = True
@@ -225,17 +226,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Store sessions in the database so they survive Render restarts/redeploys
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
-# ── Site URL (used in emails and anywhere a full URL is needed) ───────────────
-# Falls back to localhost when DEBUG=True so dev email links still work.
+# ── Site URL ──────────────────────────────────────────────────────────────────
 SITE_URL = os.environ.get(
     "SITE_URL",
     "http://127.0.0.1:8000" if DEBUG else "https://askmyfile-o8zt.onrender.com"
 )
 
+# ── Render reverse-proxy headers (needed for correct URL generation) ──────────
+# These must be set regardless of DEBUG so build_absolute_uri() works behind
+# Render's load balancer in ALL environments including staging.
+USE_X_FORWARDED_HOST  = True   # read Host from X-Forwarded-Host header
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 # ── Production hardening (DEBUG=False) ───────────────────────────────────────
 if not DEBUG:
     SECURE_SSL_REDIRECT            = True
-    SECURE_PROXY_SSL_HEADER        = ("HTTP_X_FORWARDED_PROTO", "https")  # required for Render
     SECURE_HSTS_SECONDS            = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD            = True
