@@ -1,21 +1,73 @@
 {% extends "base.html" %}
-{% block title %}Resend Verification – AskMyFile{% endblock %}
+{% block title %}Verify Your Email – AskMyFile{% endblock %}
 {% block content %}
 <div class="auth-page">
-  <div class="auth-card card" style="text-align:center;">
-    <div style="font-size:2.5rem;margin-bottom:1rem;">📧</div>
-    <h1>Verify Your Email</h1>
-    <p class="text-muted mt-1">
-      We sent a verification link to
-      {% if user_obj %}<strong>{{ user_obj.email }}</strong>{% else %}your email{% endif %}.
-      Check your inbox (and spam folder).
-    </p>
-    <form method="post" class="mt-2">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-primary btn-full">Resend Verification Email</button>
-    </form>
-    <div class="auth-divider">or</div>
-    <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-full">Back to Sign In</a>
+  <div class="auth-card glass-card fade-in" style="text-align:center;">
+
+    {% if sent %}
+      <!-- Success state -->
+      <div style="font-size:2.5rem;margin-bottom:1rem;">✅</div>
+      <h1 style="font-size:1.5rem;">Email Sent!</h1>
+      <p style="color:var(--text-muted);margin-top:0.5rem;">
+        A verification link has been sent to
+        <strong style="color:var(--cyan);">{{ user_obj.email }}</strong>.
+        Check your inbox and spam folder.
+      </p>
+      <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-full" style="margin-top:1.5rem;">
+        Back to Sign In
+      </a>
+
+    {% elif show_email_field %}
+      <!-- Session expired — ask for email -->
+      <div style="font-size:2.5rem;margin-bottom:1rem;">📧</div>
+      <h1 style="font-size:1.5rem;">Resend Verification Email</h1>
+      <p style="color:var(--text-muted);margin-top:0.4rem;margin-bottom:1.5rem;">
+        Your session expired. Enter your registered email address to resend the verification link.
+      </p>
+
+      {% if email_not_found %}
+      <div class="alert alert-error" role="alert">
+        No account found with that email address.
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate style="text-align:left;">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label" for="email">Email Address</label>
+          <input type="email" name="email" id="email" class="form-input"
+                 placeholder="your@email.com" autocomplete="email" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-full btn-lg">
+          📧 Send Verification Email
+        </button>
+      </form>
+
+      <div class="auth-divider" style="margin-top:1.25rem;">or</div>
+      <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-full">Back to Sign In</a>
+
+    {% else %}
+      <!-- Normal state — user found from session -->
+      <div style="font-size:2.5rem;margin-bottom:1rem;">📧</div>
+      <h1 style="font-size:1.5rem;">Verify Your Email</h1>
+      <p style="color:var(--text-muted);margin-top:0.4rem;">
+        We sent a verification link to
+        <strong style="color:var(--cyan);">{{ user_obj.email }}</strong>.
+        Check your inbox and spam folder.
+      </p>
+
+      <form method="post" style="margin-top:1.5rem;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-full btn-lg">
+          🔄 Resend Verification Email
+        </button>
+      </form>
+
+      <div class="auth-divider" style="margin-top:1rem;">or</div>
+      <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-full">Back to Sign In</a>
+
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}

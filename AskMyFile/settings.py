@@ -222,6 +222,9 @@ LOGOUT_REDIRECT_URL       = "/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Store sessions in the database so they survive Render restarts/redeploys
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+
 # ── Site URL (used in emails and anywhere a full URL is needed) ───────────────
 # Falls back to localhost when DEBUG=True so dev email links still work.
 SITE_URL = os.environ.get(

@@ -250,6 +250,8 @@ def user_logout(request):
 @require_http_methods(["GET", "POST"])
 def resend_email_verification(request):
     user = None
+
+    # Try to resolve user from session (set during registration)
     if request.user.is_authenticated:
         user = request.user
     else:
@@ -260,14 +262,36 @@ def resend_email_verification(request):
             except User.DoesNotExist:
                 pass
 
-    if user is None:
-        return redirect("accounts:login")
-
+    # If session expired / user not found — let them enter email manually
+    email_not_found = False
     if request.method == "POST":
-        _send_email_verification(request, user)
-        messages.success(request, "A new verification email has been sent.")
+        if user is None:
+            # User typed their email manually (session lost case)
+            email = request.POST.get("email", "").strip().lower()
+            if email:
+                try:
+                    user = User.objects.get(email=email)
+                    request.session["pending_verify_user_id"] = user.pk
+                except User.DoesNotExist:
+                    email_not_found = True
+            if email_not_found or not user:
+                return render(request, "accounts/resend_email_verification.html", {
+                    "user_obj": None,
+                    "show_email_field": True,
+                    "email_not_found": email_not_found,
+                })
 
-    return render(request, "accounts/resend_email_verification.html", {"user_obj": user})
+        _send_email_verification(request, user)
+        messages.success(request, "A new verification email has been sent. Please check your inbox.")
+        return render(request, "accounts/resend_email_verification.html", {
+            "user_obj": user,
+            "sent": True,
+        })
+
+    return render(request, "accounts/resend_email_verification.html", {
+        "user_obj": user,
+        "show_email_field": user is None,  # show email input if session was lost
+    })
 
 
 # ---------------------------------------------------------------------------
