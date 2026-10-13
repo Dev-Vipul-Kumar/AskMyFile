@@ -204,28 +204,16 @@
       createBtn.disabled = true;
 
       try {
-        /* Step 1: Fetch OTP from server (server stores it, browser uses it to encrypt) */
-        setProgress("Preparing secure upload…");
-        let otpRes;
-        try {
-          otpRes = await fetch("/shares/get-otp/", {
-            method: "GET",
-            headers: { "X-CSRFToken": csrf() },
-          });
-        } catch {
-          hideProgress(); showErr("Network error — check your connection.");
-          createBtn.disabled = false; return;
-        }
-        const otpData = await otpRes.json().catch(() => null);
-        if (!otpData || !otpData.ok) {
-          hideProgress(); showErr("Could not generate access code. Please try again.");
-          createBtn.disabled = false; return;
-        }
-        const otp = otpData.otp;  // this is the server-generated OTP
-
         const shareType = selectedType;
 
-        /* Step 2: Encrypt file using the server OTP */
+        /* Step 1: Generate OTP client-side (6 digits, cryptographically random) */
+        const otp = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+          .map(b => b % 10).join("");
+
+        /* Step 2: Compute SHA-256 hash of OTP to send to server */
+        const otpHash = await AskMyCrypto.sha256hex(otp);
+
+        /* Step 3: Encrypt file using the OTP */
         setProgress("Encrypting your file…");
         let enc;
         try {
@@ -235,7 +223,7 @@
           createBtn.disabled = false; return;
         }
 
-        /* Step 3: Upload ciphertext */
+        /* Step 4: Upload ciphertext + hash (NOT the raw OTP) */
         setProgress("Uploading encrypted file…");
         const form = new FormData();
         form.append("file_data",         new Blob([enc.ciphertext], { type: "application/octet-stream" }), "payload.bin");
@@ -244,6 +232,7 @@
         form.append("algorithm_version", enc.algorithmVersion);
         form.append("original_filename", selectedFile.name);
         form.append("share_type",        shareType);
+        form.append("otp_hash",          otpHash);  // server stores this, never sees raw OTP
 
         let res;
         try {
@@ -271,35 +260,41 @@
             file_too_large:             "File exceeds the allowed size limit.",
             missing_file:               "No file received by server.",
             missing_crypto_params:      "Encryption params missing — please try again.",
+            missing_otp_hash:           "OTP hash missing — please try again.",
             unverified_account:         "Please complete account verification first.",
-            otp_session_missing:        "Session expired — please refresh and try again.",
             movie_requires_account:     "You must be signed in to share movies.",
-            movie_requires_subscription:"🎬 Movie sharing requires a paid subscription (Starter, Plus, or Pro).",
-            movie_too_large:            `🎬 Movie exceeds your plan's limit (${data.limit_gb || "?"}GB). Upgrade to a higher plan.`,
+            movie_requires_subscription:"🎬 Movie sharing requires a paid subscription.",
+            movie_too_large:            `🎬 Movie exceeds your plan's limit (${data.limit_gb || "?"}GB).`,
           };
           showErr(MAP[data.error] || ("Error: " + (data.error || "unknown")));
           createBtn.disabled = false; return;
         }
 
-        /* Step 4: Show result — use the OTP returned from server */
-        const shownOtp = data.otp || otp;
-
+        /* Step 5: Show OTP to sender */
         if (uploadArea)  uploadArea.classList.add("hidden");
         if (resultArea)  resultArea.classList.remove("hidden");
-        if (otpCodeEl)   otpCodeEl.textContent = shownOtp;
+        if (otpCodeEl)   otpCodeEl.textContent = otp;  // always show raw OTP to sender
 
         if (channelMsgEl) {
           const chMap = {
-            email:  "📧 The access code was also sent to your registered email.",
-            sms:    "📱 The access code was also sent to your registered phone.",
+            email:  "📧 The access code was also emailed to your registered address.",
             screen: "👆 Share this 6-digit code with your recipient privately.",
           };
           channelMsgEl.textContent = chMap[data.channel] || "";
         }
 
+        /* Step 6: For registered users, email the OTP (browser sends raw OTP here) */
+        if (data.channel === "email" && data.share_id) {
+          fetch("/shares/send-otp-email/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+            body: JSON.stringify({ otp, share_id: data.share_id }),
+          }).catch(() => {});  // fire and forget — email failure doesn't block the user
+        }
+
         /* guest quota hit → forced overlay */
         if (data.guest_quota_hit) {
-          if (overlayOtp) overlayOtp.textContent = shownOtp;
+          if (overlayOtp) overlayOtp.textContent = otp;
           if (guestOverlay) {
             guestOverlay.classList.remove("hidden");
             const first = guestOverlay.querySelector("a,button,input");

@@ -1,12 +1,13 @@
 """
 shares/views.py  —  OTP-based file sharing
 
-Architecture (correct flow):
-  1. Browser picks file, calls GET /shares/get-otp/ → server returns a fresh OTP
-  2. Browser encrypts file using that OTP
-  3. Browser POSTs ciphertext + crypto params → server stores, verifies OTP matches
-  4. Recipient enters OTP on /shares/access/ → server verifies → returns salt/iv
-  5. Recipient browser downloads ciphertext + decrypts with same OTP
+Correct flow (stateless, no session dependency):
+  1. Browser generates 6-digit OTP client-side
+  2. Browser computes sha256(OTP) and encrypts file with OTP
+  3. Browser POSTs ciphertext + sha256(OTP) → server stores hash, never sees raw OTP
+  4. Registered users: raw OTP is also emailed to them
+  5. Recipient enters OTP → server hashes it, finds share → returns salt/iv
+  6. Recipient decrypts in browser using same OTP
 """
 import logging
 
@@ -30,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 GUEST_COOKIE_NAME    = "askmyfile_gid"
 GUEST_COOKIE_MAX_AGE = 60 * 60 * 24 * 30   # 30 days
-OTP_SESSION_KEY      = "pending_upload_otp"   # stores server OTP during upload flow
 
 
 # ---------------------------------------------------------------------------
@@ -44,32 +44,19 @@ def _resolve_guest(request):
 
 
 # ---------------------------------------------------------------------------
-# GET /shares/get-otp/  — Step 0: browser fetches the OTP before encrypting
-# ---------------------------------------------------------------------------
-
-@require_GET
-def get_upload_otp(request):
-    """
-    Returns a fresh server-generated OTP that the browser will use to encrypt.
-    Stored temporarily in the session so create_share_view can verify it.
-    This ensures the encryption key (OTP) and the access code are identical.
-    """
-    otp = Share.generate_otp()
-    request.session[OTP_SESSION_KEY] = otp
-    request.session.modified = True
-    return JsonResponse({"ok": True, "otp": otp})
-
-
-# ---------------------------------------------------------------------------
 # POST /shares/create/
 # ---------------------------------------------------------------------------
 
 @require_POST
 def create_share_view(request):
     """
-    Multipart POST: file_data, salt_b64, iv_b64, algorithm_version,
-                    original_filename, share_type
-    The OTP was already fetched from /shares/get-otp/ and stored in session.
+    Multipart POST fields:
+      file_data, salt_b64, iv_b64, algorithm_version,
+      original_filename, share_type, otp_hash  ← sha256(OTP) computed by browser
+
+    The raw OTP never leaves the browser — only its SHA-256 hash is sent.
+    Registered users receive the raw OTP via email (delivered separately).
+    The server stores the hash for verification when the recipient enters the code.
     """
     user = request.user if request.user.is_authenticated else None
     guest_identity = guest_raw = None
@@ -80,30 +67,28 @@ def create_share_view(request):
     if user and not user.is_fully_verified:
         return JsonResponse({"ok": False, "error": "unverified_account"}, status=403)
 
-    # --- Retrieve OTP from session (set by /shares/get-otp/) ---
-    server_otp = request.session.get(OTP_SESSION_KEY)
-    if not server_otp:
-        return JsonResponse({"ok": False, "error": "otp_session_missing"}, status=400)
-
     # --- file ---
     file_obj = request.FILES.get("file_data")
     if not file_obj:
         return JsonResponse({"ok": False, "error": "missing_file"}, status=400)
 
-    # --- share type (must be read BEFORE size checks that reference it) ---
+    # --- OTP hash (sha256 of the raw OTP computed by the browser) ---
+    otp_hash_from_browser = request.POST.get("otp_hash", "").strip()
+    if not otp_hash_from_browser or len(otp_hash_from_browser) != 64:
+        return JsonResponse({"ok": False, "error": "missing_otp_hash"}, status=400)
+
+    # --- share type ---
     share_type = request.POST.get("share_type", "file").strip()
-    valid_types = ("file", "folder", "multimedia", "movie")
-    if share_type not in valid_types:
+    if share_type not in ("file", "folder", "multimedia", "movie"):
         share_type = "file"
 
     is_admin = getattr(user, "is_staff", False) if user else False
 
     # --- size limits ---
-    if not is_admin:
-        if share_type != "movie":
-            size_limit = settings.FREE_MAX_FILE_SIZE_BYTES if (user and user.is_authenticated) else settings.MAX_FILE_SIZE_BYTES
-            if file_obj.size > size_limit:
-                return JsonResponse({"ok": False, "error": "file_too_large"}, status=413)
+    if not is_admin and share_type != "movie":
+        size_limit = settings.FREE_MAX_FILE_SIZE_BYTES if (user and user.is_authenticated) else settings.MAX_FILE_SIZE_BYTES
+        if file_obj.size > size_limit:
+            return JsonResponse({"ok": False, "error": "file_too_large"}, status=413)
 
     salt_b64  = request.POST.get("salt_b64", "").strip()
     iv_b64    = request.POST.get("iv_b64",   "").strip()
@@ -113,7 +98,7 @@ def create_share_view(request):
     original_filename = request.POST.get("original_filename", "")[:512]
     algorithm_version = request.POST.get("algorithm_version", "AES-GCM-256-v1").strip()
 
-    # --- Movie: subscription gate ---
+    # --- Movie gate ---
     if share_type == "movie":
         if not (user and user.is_authenticated):
             return JsonResponse({"ok": False, "error": "movie_requires_account"}, status=403)
@@ -132,6 +117,9 @@ def create_share_view(request):
                                      "limit_gb": movie_limit // (1024 ** 3)}, status=413)
 
     # --- OTP channel ---
+    # Guests & unverified → screen only (code shown on sender's screen)
+    # Registered users  → email (code emailed to sender, also shown on screen)
+    # Admin             → screen (they see it directly)
     if not (user and user.is_authenticated):
         otp_channel = ShareOTPDelivery.CHANNEL_SCREEN
     elif getattr(user, "is_staff", False):
@@ -149,14 +137,10 @@ def create_share_view(request):
         algorithm_version = algorithm_version,
         share_type        = share_type,
         otp_channel       = otp_channel,
-        server_otp        = server_otp,   # pass the session OTP to services
+        otp_hash          = otp_hash_from_browser,  # store the browser-computed hash
         user              = user,
         guest_identity    = guest_identity,
     )
-
-    # Clear OTP from session after use
-    request.session.pop(OTP_SESSION_KEY, None)
-    request.session.modified = True
 
     if not result["ok"]:
         if result["error"] == "quota_exceeded":
@@ -168,9 +152,8 @@ def create_share_view(request):
                                  "plans": plans, "daily_limit": get_daily_limit(user)}, status=429)
         return JsonResponse({"ok": False, "error": result["error"]}, status=400)
 
-    share     = result["share"]
-    raw_otp   = result["raw_otp"]
-    channel   = result["channel"]
+    share   = result["share"]
+    channel = result["channel"]
     remaining = result["quota_remaining"]
     limit     = get_daily_limit(user)
 
@@ -182,12 +165,9 @@ def create_share_view(request):
         "quota_remaining": remaining,
         "quota_limit":     limit,
         "guest_quota_hit": (not user and remaining == 0),
+        # NOTE: we do NOT return the raw OTP here — the browser already has it.
+        # The browser will display the OTP it generated itself.
     }
-    # Always return OTP for screen channel; for email it was already sent
-    if channel == ShareOTPDelivery.CHANNEL_SCREEN:
-        payload["otp"] = raw_otp
-    else:
-        payload["otp"] = raw_otp  # show on screen even if also emailed
 
     response = JsonResponse(payload)
     if guest_raw:
@@ -195,6 +175,49 @@ def create_share_view(request):
             max_age=GUEST_COOKIE_MAX_AGE, httponly=True,
             samesite="Lax", secure=not settings.DEBUG)
     return response
+
+
+# ---------------------------------------------------------------------------
+# POST /shares/send-otp-email/  — send raw OTP to registered user's email
+# ---------------------------------------------------------------------------
+
+@require_POST
+@login_required
+def send_otp_email(request):
+    """
+    Called by the browser AFTER a successful upload.
+    The browser sends the raw OTP (which it generated) so the server can
+    email it to the registered user. This keeps the upload endpoint zero-knowledge
+    while still delivering the OTP by email.
+    """
+    import json as _json
+    try:
+        body = _json.loads(request.body)
+    except (ValueError, TypeError):
+        return JsonResponse({"ok": False, "error": "invalid_json"}, status=400)
+
+    raw_otp  = str(body.get("otp",      "")).strip()
+    share_id = body.get("share_id")
+
+    if not raw_otp or not raw_otp.isdigit() or len(raw_otp) != 6:
+        return JsonResponse({"ok": False, "error": "invalid_otp"}, status=400)
+    if not share_id:
+        return JsonResponse({"ok": False, "error": "missing_share_id"}, status=400)
+
+    # Verify the OTP actually matches this share (prevents spam)
+    try:
+        share = Share.objects.get(pk=share_id, owner_user=request.user)
+    except Share.DoesNotExist:
+        return JsonResponse({"ok": False, "error": "share_not_found"}, status=404)
+
+    if not share.check_otp(raw_otp):
+        return JsonResponse({"ok": False, "error": "otp_mismatch"}, status=400)
+
+    from .services import deliver_otp
+    from .models import ShareOTPDelivery
+    deliver_otp(share, raw_otp, ShareOTPDelivery.CHANNEL_EMAIL, user=request.user)
+
+    return JsonResponse({"ok": True})
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +241,7 @@ def share_access(request):
     if not raw_otp or not raw_otp.isdigit() or len(raw_otp) != 6:
         return JsonResponse({"ok": False, "error": "invalid_otp_format"}, status=400)
 
+    # Hash the entered OTP and look it up in the DB
     otp_hash = Share.hash_otp(raw_otp)
 
     share = (
@@ -233,7 +257,7 @@ def share_access(request):
     if not share.is_available:
         return JsonResponse({"ok": False, "error": "share_unavailable"}, status=410)
 
-    # Store verified share id in session
+    # Store verified share id in session so download endpoint knows it's verified
     request.session[f"otp_verified_{share.pk}"] = True
     request.session.modified = True
 

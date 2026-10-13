@@ -5,7 +5,7 @@ app_name = "shares"
 
 urlpatterns = [
     path("create/",                  views.create_share_view, name="create"),
-    path("get-otp/",                 views.get_upload_otp,    name="get_otp"),
+    path("send-otp-email/",          views.send_otp_email,    name="send_otp_email"),
     path("access/",                  views.share_access,      name="access"),
     path("<int:share_id>/download/", views.share_download,    name="download"),
     path("<int:share_id>/revoke/",   views.revoke_share,      name="revoke"),

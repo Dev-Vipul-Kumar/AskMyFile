@@ -115,5 +115,12 @@ const AskMyCrypto = (() => {
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1500);
   }
 
-  return { encryptFile, decryptFile, triggerDownload, toB64, fromB64 };
+  /* ── sha256 hex helper (for OTP hashing before upload) ── */
+  async function sha256hex(str) {
+    const buf = await crypto.subtle.digest("SHA-256", enc.encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+  }
+
+  // Public API
+  return { encryptFile, decryptFile, triggerDownload, toB64, fromB64, sha256hex };
 })();

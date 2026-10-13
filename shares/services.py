@@ -94,7 +94,7 @@ def create_share(
     share_type: str = "file",
     algorithm_version: str = "AES-GCM-256-v1",
     otp_channel: str = ShareOTPDelivery.CHANNEL_SCREEN,
-    server_otp: str | None = None,   # OTP pre-generated and given to browser for encryption
+    otp_hash: str,          # sha256(raw_otp) computed by browser — stored directly
     user=None,
     guest_identity: GuestQuotaIdentity | None = None,
 ) -> dict:
@@ -126,9 +126,9 @@ def create_share(
         guest_minutes = getattr(settings, "GUEST_LINK_EXPIRY_MINUTES", 1)
         expiry_delta  = timezone.timedelta(minutes=guest_minutes)
 
-    # Use the server OTP (pre-given to browser for encryption), or generate a new one
-    raw_otp     = server_otp if server_otp else Share.generate_otp()
-    otp_hash    = Share.hash_otp(raw_otp)
+    # Use the browser-provided hash directly — no need to generate or hash again
+    # The raw OTP never reaches the server; only its sha256 hash does
+    raw_otp     = None    # we don't have the raw OTP — browser kept it
     storage_key = Share.generate_storage_key()
 
     # Admin users: skip quota entirely
@@ -152,7 +152,7 @@ def create_share(
         share = Share.objects.create(
             owner_user        = user if (user and user.is_authenticated) else None,
             guest_identity    = guest_identity if not (user and user.is_authenticated) else None,
-            access_otp_hash   = otp_hash,
+            access_otp_hash   = otp_hash,   # browser-computed sha256(OTP)
             storage_key       = storage_key,
             ciphertext_size   = len(file_bytes),
             algorithm_version = algorithm_version,
@@ -173,14 +173,17 @@ def create_share(
             usage.successful_shares += 1
             usage.save(update_fields=["successful_shares", "updated_at"])
 
-    # Deliver OTP outside the transaction (email/SMS I/O)
-    deliver_otp(share, raw_otp, otp_channel, user=user)
+    # Update deliver_otp call — raw_otp is not available here anymore
+    # For email delivery, the browser calls /shares/send-otp-email/ separately
+    # For screen channel, OTP is already in the browser — nothing to do server-side
+    if otp_channel == ShareOTPDelivery.CHANNEL_SMS:
+        logger.info("[DEV] SMS OTP for share #%s (hash: %s...)", share.pk, otp_hash[:8])
 
     remaining = get_quota_remaining(user=user, guest_identity=guest_identity)
     return {
         "ok":              True,
         "share":           share,
-        "raw_otp":         raw_otp,
+        "raw_otp":         None,  # server never had raw OTP — browser kept it
         "channel":         otp_channel,
         "quota_remaining": remaining,
     }
