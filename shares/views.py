@@ -73,12 +73,14 @@ def create_share_view(request):
 
     if not is_admin:
         # Guests: MAX_FILE_SIZE_BYTES (100MB); verified free users: FREE_MAX_FILE_SIZE_BYTES (500MB)
-        if user and user.is_authenticated:
-            size_limit = settings.FREE_MAX_FILE_SIZE_BYTES
-        else:
-            size_limit = settings.MAX_FILE_SIZE_BYTES
-        if file_obj.size > size_limit:
-            return JsonResponse({"ok": False, "error": "file_too_large"}, status=413)
+        # Movie type has its own size check above; skip the general limit for movies
+        if share_type != "movie":
+            if user and user.is_authenticated:
+                size_limit = settings.FREE_MAX_FILE_SIZE_BYTES
+            else:
+                size_limit = settings.MAX_FILE_SIZE_BYTES
+            if file_obj.size > size_limit:
+                return JsonResponse({"ok": False, "error": "file_too_large"}, status=413)
 
     salt_b64  = request.POST.get("salt_b64", "").strip()
     iv_b64    = request.POST.get("iv_b64",   "").strip()
@@ -88,8 +90,39 @@ def create_share_view(request):
     original_filename = request.POST.get("original_filename", "")[:512]
     algorithm_version = request.POST.get("algorithm_version", "AES-GCM-256-v1").strip()
     share_type        = request.POST.get("share_type", "file").strip()
-    if share_type not in ("file", "folder", "document"):
+
+    # Validate share_type — document renamed to multimedia, movie added
+    valid_types = ("file", "folder", "multimedia", "movie")
+    if share_type not in valid_types:
         share_type = "file"
+
+    # ── Movie: subscription-only with per-plan size limit ──────────────────
+    if share_type == "movie":
+        if not (user and user.is_authenticated):
+            return JsonResponse({"ok": False, "error": "movie_requires_account"}, status=403)
+        if is_admin:
+            pass  # admin has no restriction
+        else:
+            # Look up the user's active plan movie limit
+            movie_limit = 0   # default: not allowed (Free plan)
+            try:
+                active_sub = user.subscriptions.filter(
+                    status="active"
+                ).select_related("plan").latest("period_start")
+                if active_sub.is_currently_active:
+                    movie_limit = active_sub.plan.movie_size_limit_bytes
+            except Exception:
+                movie_limit = settings.MOVIE_SIZE_FREE
+
+            if movie_limit == 0:
+                return JsonResponse({"ok": False, "error": "movie_requires_subscription"}, status=403)
+            if movie_limit != -1 and file_obj.size > movie_limit:
+                limit_gb = movie_limit // (1024 ** 3)
+                return JsonResponse({
+                    "ok": False,
+                    "error": "movie_too_large",
+                    "limit_gb": limit_gb,
+                }, status=413)
 
     # Channel logic:
     # - Guests/unauthenticated → screen only (OTP shown on screen)

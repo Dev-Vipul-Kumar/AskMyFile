@@ -29,6 +29,8 @@ class Plan(models.Model):
     is_free = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     sort_order = models.PositiveSmallIntegerField(default=0)
+    # Movie sharing: 0 = not allowed, -1 = unlimited, positive int = bytes limit
+    movie_size_limit_bytes = models.BigIntegerField(default=0)
 
     class Meta:
         db_table = "billing_plan"

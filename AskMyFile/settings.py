@@ -14,11 +14,11 @@ SECRET_KEY = os.environ.get(
 )
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-# ALLOWED_HOSTS: always include localhost for dev; in production Render injects
-# RENDER_EXTERNAL_HOSTNAME automatically.
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+# ── Allowed hosts ─────────────────────────────────────────────────────────────
+# Localhost for dev; RENDER_EXTERNAL_HOSTNAME is auto-injected by Render.
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "askmyfile-o8zt.onrender.com"]
 _render_host = os.environ.get("RENDER_EXTERNAL_HOSTNAME")   # set by Render automatically
-if _render_host:
+if _render_host and _render_host not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_render_host)
 _extra_hosts = os.environ.get("ALLOWED_HOSTS_EXTRA", "")    # your custom domain if any
 if _extra_hosts:
@@ -146,12 +146,14 @@ CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE   = not DEBUG
 
-# CSRF trusted origins — must include your Render URL and any custom domain.
+# ── CSRF trusted origins ─────────────────────────────────────────────────────
+# Must include your live Render URL and localhost for dev.
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
+    "https://askmyfile-o8zt.onrender.com",   # live Render URL
 ]
-if _render_host:
+if _render_host and f"https://{_render_host}" not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(f"https://{_render_host}")
 _csrf_extra = os.environ.get("CSRF_TRUSTED_ORIGINS_EXTRA", "")
 if _csrf_extra:
@@ -167,6 +169,13 @@ MAX_FILE_SIZE_BYTES      = int(os.environ.get("MAX_FILE_SIZE_BYTES",      str(10
 FREE_MAX_FILE_SIZE_BYTES = int(os.environ.get("FREE_MAX_FILE_SIZE_BYTES", str(500 * 1024 * 1024)))
 DATA_UPLOAD_MAX_MEMORY_SIZE = FREE_MAX_FILE_SIZE_BYTES + (2 * 1024 * 1024)
 FILE_UPLOAD_MAX_MEMORY_SIZE = FREE_MAX_FILE_SIZE_BYTES + (2 * 1024 * 1024)
+
+# ── Movie size limits per plan ────────────────────────────────────────────────
+# 0 = not allowed on that plan,  -1 = unlimited
+MOVIE_SIZE_FREE    = 0                                                               # not available on Free
+MOVIE_SIZE_STARTER = int(os.environ.get("MOVIE_SIZE_STARTER", str(1 * 1024 ** 3))) # 1 GB
+MOVIE_SIZE_PLUS    = int(os.environ.get("MOVIE_SIZE_PLUS",    str(2 * 1024 ** 3))) # 2 GB
+MOVIE_SIZE_PRO     = -1                                                              # unlimited
 
 # ── Quota / plan defaults ─────────────────────────────────────────────────────
 ADMIN_PANEL_URL        = os.environ.get("ADMIN_PANEL_URL",        "admin-panel")
@@ -212,6 +221,13 @@ ADMIN_PANEL_LOGIN_REDIRECT= "/admin-panel/"
 LOGOUT_REDIRECT_URL       = "/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── Site URL (used in emails and anywhere a full URL is needed) ───────────────
+# Falls back to localhost when DEBUG=True so dev email links still work.
+SITE_URL = os.environ.get(
+    "SITE_URL",
+    "http://127.0.0.1:8000" if DEBUG else "https://askmyfile-o8zt.onrender.com"
+)
 
 # ── Production hardening (DEBUG=False) ───────────────────────────────────────
 if not DEBUG:

@@ -8,29 +8,31 @@
 
   <div class="alert alert-info" style="margin-bottom:1.5rem;">
     ⚡ Admin shares have <strong>no file size limit</strong>, <strong>no daily quota</strong>,
-    and <strong>no expiry restriction</strong>. All file types and folders are accepted.
+    <strong>no expiry restriction</strong>, and access to <strong>all 4 share types</strong>.
   </div>
 
   <div class="glass-card" style="padding:2rem;">
 
     <div id="uploadArea">
 
-      <!-- Share type selector -->
+      <!-- Share type selector — all 4 types, no restrictions for admin -->
       <div class="form-group">
         <label class="form-label">What are you sharing?</label>
-        <div class="channel-pills" role="group" id="shareTypeGroup">
-          <button type="button" class="channel-pill active" data-sharetype="file">📄 File</button>
-          <button type="button" class="channel-pill" data-sharetype="folder">📁 Folder / Archive</button>
-          <button type="button" class="channel-pill" data-sharetype="document">📝 Document</button>
+        <div class="channel-pills" role="group" id="shareTypeGroup" aria-label="Share type">
+          <button type="button" class="channel-pill active" data-sharetype="file"       aria-pressed="true">📄 Document</button>
+          <button type="button" class="channel-pill"        data-sharetype="folder"     aria-pressed="false">📁 Folder</button>
+          <button type="button" class="channel-pill"        data-sharetype="multimedia" aria-pressed="false">🖼 Multimedia</button>
+          <button type="button" class="channel-pill"        data-sharetype="movie"      aria-pressed="false" style="color:var(--orange);border-color:rgba(245,158,11,0.35);">🎬 Movie</button>
         </div>
+        <p class="form-hint" id="shareTypeHint" style="min-height:1.1rem;"></p>
       </div>
 
-      <!-- Drop zone -->
+      <!-- Drop zone — icon/title/sub updated by uploader.js -->
       <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Select file">
         <input type="file" id="fileInput" aria-label="Select file" />
-        <span class="drop-icon" id="dropIcon">📤</span>
-        <p class="drop-zone-title" id="dropTitle">Drop any file, folder archive, or document</p>
-        <p class="drop-zone-sub">No size limit for admin · Any file type accepted</p>
+        <span class="drop-icon" id="dropIcon">📄</span>
+        <p class="drop-zone-title" id="dropTitle">Drop a document or click to browse</p>
+        <p class="drop-zone-sub" id="dropSub">No size limit for admin · All file types accepted</p>
       </div>
 
       <div id="fileInfo" class="file-pill hidden" aria-live="polite">
@@ -42,10 +44,10 @@
       <!-- OTP delivery -->
       <div class="form-group" style="margin-top:1.25rem;">
         <label class="form-label">Send access code via</label>
-        <div class="channel-pills" id="otpChannelGroup">
-          <button type="button" class="channel-pill active" data-channel="screen">🖥 Screen</button>
-          <button type="button" class="channel-pill" data-channel="email">📧 Email</button>
-          <button type="button" class="channel-pill" data-channel="sms">📱 SMS</button>
+        <div class="channel-pills" role="group" aria-label="OTP delivery method">
+          <button type="button" class="channel-pill active" data-channel="screen" aria-pressed="true">🖥 Screen</button>
+          <button type="button" class="channel-pill"        data-channel="email"  aria-pressed="false">📧 Email</button>
+          <button type="button" class="channel-pill"        data-channel="sms"    aria-pressed="false">📱 SMS</button>
         </div>
       </div>
 
@@ -56,7 +58,8 @@
         <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
       </div>
 
-      <button type="button" id="createShareBtn" class="btn btn-primary btn-full btn-lg" disabled style="margin-top:1.25rem;">
+      <button type="button" id="createShareBtn" class="btn btn-primary btn-full btn-lg"
+              disabled style="margin-top:1.25rem;">
         🔒 Encrypt &amp; Share (Admin)
       </button>
     </div>
@@ -89,19 +92,6 @@
 <script>
   const PBKDF2_ITERS = {{ pbkdf2_iterations }};
   const CSRF_TOKEN   = "{{ csrf_token }}";
-
-  // Share type pills
-  document.querySelectorAll("#shareTypeGroup .channel-pill").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll("#shareTypeGroup .channel-pill").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const icons = { file:"📤", folder:"📦", document:"📝" };
-      const titles = { file:"Drop any file", folder:"Drop a folder archive (ZIP/RAR/etc.)", document:"Drop a document (PDF, DOCX, etc.)" };
-      const t = btn.dataset.sharetype;
-      document.getElementById("dropIcon").textContent  = icons[t]  || "📤";
-      document.getElementById("dropTitle").textContent = titles[t] || "Drop file here";
-    });
-  });
 </script>
 <script src="{% static 'js/crypto.js' %}"></script>
 <script src="{% static 'js/uploader.js' %}"></script>

@@ -111,13 +111,15 @@ class Share(models.Model):
     ]
 
     # Share type (what kind of content is being shared)
-    TYPE_FILE     = "file"
-    TYPE_FOLDER   = "folder"
-    TYPE_DOCUMENT = "document"
-    TYPE_CHOICES  = [
-        (TYPE_FILE,     "File"),
-        (TYPE_FOLDER,   "Folder / Archive"),
-        (TYPE_DOCUMENT, "Document"),
+    TYPE_FILE       = "file"
+    TYPE_FOLDER     = "folder"
+    TYPE_MULTIMEDIA = "multimedia"
+    TYPE_MOVIE      = "movie"
+    TYPE_CHOICES    = [
+        (TYPE_FILE,       "Document / File"),
+        (TYPE_FOLDER,     "Folder / Archive"),
+        (TYPE_MULTIMEDIA, "Multimedia (Image / Video)"),
+        (TYPE_MOVIE,      "Movie"),
     ]
 
     owner_user = models.ForeignKey(
@@ -158,7 +160,7 @@ class Share(models.Model):
 
     # Original filename (stored plaintext for owner display; NOT in encryption envelope)
     original_filename = models.CharField(max_length=512, blank=True)
-    share_type        = models.CharField(max_length=12, choices=TYPE_CHOICES, default=TYPE_FILE)
+    share_type = models.CharField(max_length=12, choices=TYPE_CHOICES, default=TYPE_FILE)
 
     class Meta:
         db_table = "shares_share"

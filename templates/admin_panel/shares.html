@@ -10,9 +10,10 @@
   <a href="?filter=active"   class="filter-pill {% if filt == 'active' %}active{% endif %}">Active</a>
   <a href="?filter=expired"  class="filter-pill {% if filt == 'expired' %}active{% endif %}">Expired</a>
   <a href="?filter=revoked"  class="filter-pill {% if filt == 'revoked' %}active{% endif %}">Revoked</a>
-  <a href="?filter=file"     class="filter-pill {% if filt == 'file' %}active{% endif %}">📄 Files</a>
-  <a href="?filter=folder"   class="filter-pill {% if filt == 'folder' %}active{% endif %}">📁 Folders</a>
-  <a href="?filter=document" class="filter-pill {% if filt == 'document' %}active{% endif %}">📝 Documents</a>
+  <a href="?filter=file"        class="filter-pill {% if filt == 'file' %}active{% endif %}">📄 Documents</a>
+  <a href="?filter=folder"      class="filter-pill {% if filt == 'folder' %}active{% endif %}">📁 Folders</a>
+  <a href="?filter=multimedia"  class="filter-pill {% if filt == 'multimedia' %}active{% endif %}">🖼 Multimedia</a>
+  <a href="?filter=movie"       class="filter-pill {% if filt == 'movie' %}active{% endif %}">🎬 Movies</a>
 </form>
 
 <div class="admin-section">
@@ -30,7 +31,7 @@
           <td class="cell-mono" style="color:var(--text-dim);">{{ s.id }}</td>
           <td><strong>{{ s.original_filename|default:"unnamed"|truncatechars:32 }}</strong></td>
           <td style="font-size:0.75rem;">
-            {% if s.share_type == 'file' %}📄{% elif s.share_type == 'folder' %}📁{% else %}📝{% endif %}
+            {% if s.share_type == 'file' %}📄{% elif s.share_type == 'folder' %}📁{% elif s.share_type == 'multimedia' %}🖼{% elif s.share_type == 'movie' %}🎬{% else %}📄{% endif %}
             {{ s.share_type }}
           </td>
           <td>

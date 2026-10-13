@@ -299,7 +299,7 @@ def share_list(request):
         shares = shares.filter(status=Share.STATUS_EXPIRED)
     elif filt == "revoked":
         shares = shares.filter(status=Share.STATUS_REVOKED)
-    elif filt in ("file", "folder", "document"):
+    elif filt in ("file", "folder", "multimedia", "movie"):
         shares = shares.filter(share_type=filt)
 
     return render(request, "admin_panel/shares.html", {

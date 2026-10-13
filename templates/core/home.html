@@ -62,11 +62,13 @@
           <!-- Share type selector -->
           <div class="form-group">
             <label class="form-label">What are you sharing?</label>
-            <div class="channel-pills" role="group" id="shareTypeGroup">
-              <button type="button" class="channel-pill active" data-sharetype="file">📄 File</button>
-              <button type="button" class="channel-pill" data-sharetype="folder">📁 Folder</button>
-              <button type="button" class="channel-pill" data-sharetype="document">📝 Document</button>
+            <div class="channel-pills" role="group" id="shareTypeGroup" aria-label="Share type">
+              <button type="button" class="channel-pill active" data-sharetype="file"        aria-pressed="true">📄 Document</button>
+              <button type="button" class="channel-pill"        data-sharetype="folder"      aria-pressed="false">📁 Folder</button>
+              <button type="button" class="channel-pill"        data-sharetype="multimedia"  aria-pressed="false">🖼 Multimedia</button>
+              <button type="button" class="channel-pill"        data-sharetype="movie"       aria-pressed="false" style="color:var(--orange);border-color:rgba(245,158,11,0.35);">🎬 Movie</button>
             </div>
+            <p class="form-hint" id="shareTypeHint" style="min-height:1.1rem;"></p>
           </div>
 
           <!-- Drop zone -->
@@ -74,9 +76,9 @@
                id="dropZone" role="button" tabindex="0" aria-label="Select file"
                {% if quota_remaining == 0 %}aria-disabled="true"{% endif %}>
             <input type="file" id="fileInput" {% if quota_remaining == 0 %}disabled{% endif %} aria-label="Select file" />
-            <span class="drop-icon">📤</span>
-            <p class="drop-zone-title">Drop file here or click to browse</p>
-            <p class="drop-zone-sub">Up to 500 MB · Any file type · Encrypted in browser</p>
+            <span class="drop-icon" id="dropIcon">📄</span>
+            <p class="drop-zone-title" id="dropTitle">Drop a document or click to browse</p>
+            <p class="drop-zone-sub"   id="dropSub">Up to 500 MB · PDF, Word, Excel, PPT… · Encrypted in browser</p>
           </div>
 
           <div id="fileInfo" class="file-pill hidden" aria-live="polite">
@@ -166,7 +168,7 @@
         <div class="share-item-meta">
           <div class="flex gap-1" style="align-items:center;flex-wrap:wrap;margin-bottom:0.2rem;">
             <span class="status-badge status-{{ share.status }}">{{ share.status|title }}</span>
-            {% if share.share_type == 'folder' %}📁{% elif share.share_type == 'document' %}📝{% else %}📄{% endif %}
+            {% if share.share_type == 'folder' %}📁{% elif share.share_type == 'multimedia' %}🖼{% elif share.share_type == 'movie' %}🎬{% else %}📄{% endif %}
             <span class="text-dim">{{ share.created_at|date:"M d · H:i" }}</span>
           </div>
           <div class="share-item-name">
