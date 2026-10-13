@@ -102,14 +102,16 @@
       setProgress("Verifying access code…");
       let verifyRes;
       try {
+        // Use injected CSRF_TOKEN first (most reliable), then fall back to cookie
+        const csrfToken = (typeof CSRF_TOKEN !== "undefined" && CSRF_TOKEN)
+          ? CSRF_TOKEN
+          : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || "";
+
         verifyRes = await fetch("/shares/access/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-CSRFToken": (() => {
-              const m = document.cookie.match(/csrftoken=([^;]+)/);
-              return m ? m[1] : "";
-            })(),
+            "X-CSRFToken": csrfToken,
           },
           body: JSON.stringify({ otp }),
         });

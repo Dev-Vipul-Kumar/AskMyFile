@@ -83,6 +83,7 @@
 {% block extra_js %}
 <script>
   const PBKDF2_ITERS = {{ pbkdf2_iterations }};
+  const CSRF_TOKEN   = "{{ csrf_token }}";
 </script>
 <script src="{% static 'js/crypto.js' %}"></script>
 <script src="{% static 'js/decryptor.js' %}"></script>
