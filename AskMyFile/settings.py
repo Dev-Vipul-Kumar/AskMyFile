@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "billing",
     "core",
     "admin_panel",
+    "anymail",   # transactional email via Brevo API (works on Render)
 ]
 
 # ── Middleware ────────────────────────────────────────────────────────────────
@@ -127,16 +128,25 @@ STORAGES = {
 MEDIA_URL  = "/media/"
 MEDIA_ROOT = os.environ.get("MEDIA_ROOT", str(BASE_DIR / "private_uploads"))
 
-# ── Email ─────────────────────────────────────────────────────────────────────
-EMAIL_BACKEND   = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-EMAIL_HOST      = os.environ.get("EMAIL_HOST",    "smtp.gmail.com")
-EMAIL_PORT      = int(os.environ.get("EMAIL_PORT", "465"))
-EMAIL_USE_TLS   = os.environ.get("EMAIL_USE_TLS",  "False") == "True"
-EMAIL_USE_SSL   = os.environ.get("EMAIL_USE_SSL",  "True")  == "True"
-EMAIL_HOST_USER     = os.environ.get("EMAIL_HOST_USER",     "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-DEFAULT_FROM_EMAIL  = os.environ.get("DEFAULT_FROM_EMAIL",  "AskMyFile <noreply@askmyfile.app>")
-EMAIL_TIMEOUT   = int(os.environ.get("EMAIL_TIMEOUT", "10"))  # 10s max — prevents worker kill
+# ── Email — uses Brevo API (HTTPS, works on Render's blocked-SMTP network) ────
+# In development with no BREVO_API_KEY set, falls back to console backend.
+# Set EMAIL_BACKEND and BREVO_API_KEY in Render environment variables.
+_brevo_key = os.environ.get("BREVO_API_KEY", "")
+
+if _brevo_key:
+    EMAIL_BACKEND  = "anymail.backends.brevo.EmailBackend"
+    ANYMAIL = {
+        "BREVO_API_KEY": _brevo_key,
+    }
+else:
+    # Local dev: print emails to the terminal
+    EMAIL_BACKEND = os.environ.get(
+        "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+    )
+
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL", "AskMyFile <noreply@askmyfile.app>"
+)
 
 # ── Cookie / CSRF security ────────────────────────────────────────────────────
 SESSION_COOKIE_HTTPONLY = True
