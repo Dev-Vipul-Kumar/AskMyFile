@@ -35,8 +35,7 @@
           <th>#</th>
           <th>Email</th>
           <th>Name</th>
-          <th>Phone</th>
-          <th>Verification</th>
+          <th>Verified</th>
           <th>Role</th>
           <th>Status</th>
           <th>Shares</th>
@@ -57,19 +56,11 @@
 
           <td><strong>{{ u.display_name|default:"—" }}</strong></td>
 
-          <td class="cell-mono" style="font-size:0.78rem;">
-            {{ u.phone_number|default:"—" }}
-          </td>
-
           <td>
-            {% if u.email_verified and u.phone_verified %}
-              <span class="chip-ok">✓ Both</span>
-            {% elif u.email_verified %}
-              <span class="chip-warn">Email only</span>
-            {% elif u.phone_verified %}
-              <span class="chip-warn">Phone only</span>
+            {% if u.email_verified %}
+              <span class="chip-ok">✓ Verified</span>
             {% else %}
-              <span class="chip-no">None</span>
+              <span class="chip-no">Not verified</span>
             {% endif %}
           </td>
 
@@ -139,7 +130,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="10" style="text-align:center;padding:3rem;color:var(--text-dim);">
+          <td colspan="9" style="text-align:center;padding:3rem;color:var(--text-dim);">
             No users found. <a href="{% url 'admin_panel:user_create' %}" style="color:var(--cyan);">Create the first one →</a>
           </td>
         </tr>

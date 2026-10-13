@@ -29,10 +29,9 @@
         <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
         {{ form.password }}
         {% if form.password.errors %}<p class="form-error">{{ form.password.errors.0 }}</p>{% endif %}
-        <!-- Forgot password link directly below the password field -->
         <div style="text-align:right;margin-top:0.4rem;">
-          <a href="{% url 'accounts:phone_reset_request' %}"
-             style="font-size:0.8rem;color:var(--text-dim);transition:color 0.2s;"
+          <a href="{% url 'accounts:password_reset_request' %}"
+             style="font-size:0.8rem;color:var(--text-dim);"
              onmouseover="this.style.color='var(--cyan)'"
              onmouseout="this.style.color='var(--text-dim)'">
             Forgot Password?
@@ -42,7 +41,7 @@
 
       <button type="submit" class="btn btn-primary btn-full btn-lg">Sign In →</button>
 
-      <div class="flex-center mt-2" style="font-size:0.82rem;gap:1.5rem;">
+      <div class="flex-center mt-2" style="font-size:0.82rem;">
         <a href="{% url 'accounts:register' %}" style="color:var(--cyan);">Create account</a>
       </div>
     </form>

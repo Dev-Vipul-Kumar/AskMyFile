@@ -1,5 +1,3 @@
-import re
-
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -9,7 +7,7 @@ from .models import User
 
 
 class RegistrationForm(forms.ModelForm):
-    """Registration form: email, display name, phone, password (×2)."""
+    """Registration: email, display name, password (×2). No phone."""
 
     password = forms.CharField(
         label="Password",
@@ -21,12 +19,11 @@ class RegistrationForm(forms.ModelForm):
     )
 
     class Meta:
-        model = User
-        fields = ["email", "display_name", "phone_number"]
+        model  = User
+        fields = ["email", "display_name"]
         widgets = {
-            "email": forms.EmailInput(attrs={"autocomplete": "email", "class": "form-input"}),
-            "display_name": forms.TextInput(attrs={"autocomplete": "name", "class": "form-input"}),
-            "phone_number": forms.TextInput(attrs={"autocomplete": "tel", "class": "form-input", "placeholder": "+91XXXXXXXXXX"}),
+            "email":        forms.EmailInput(attrs={"autocomplete": "email", "class": "form-input"}),
+            "display_name": forms.TextInput(attrs={"autocomplete": "name",  "class": "form-input"}),
         }
 
     def clean_email(self):
@@ -35,20 +32,9 @@ class RegistrationForm(forms.ModelForm):
             raise ValidationError("An account with this email already exists.")
         return email
 
-    def clean_phone_number(self):
-        phone = self.cleaned_data["phone_number"].strip()
-        if not re.match(r"^\+?[1-9]\d{6,14}$", phone):
-            raise ValidationError("Enter a valid phone number (e.g. +91XXXXXXXXXX).")
-        if User.objects.filter(phone_number=phone).exists():
-            raise ValidationError("An account with this phone number already exists.")
-        return phone
-
     def clean_password(self):
         password = self.cleaned_data.get("password", "")
-        try:
-            validate_password(password)
-        except ValidationError as e:
-            raise e
+        validate_password(password)
         return password
 
     def clean(self):
@@ -63,7 +49,6 @@ class RegistrationForm(forms.ModelForm):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password"])
         user.email_verified = False
-        user.phone_verified = False
         if commit:
             user.save()
         return user
@@ -81,12 +66,12 @@ class LoginForm(forms.Form):
 
     def __init__(self, request=None, *args, **kwargs):
         self.request = request
-        self._user = None
+        self._user   = None
         super().__init__(*args, **kwargs)
 
     def clean(self):
-        cleaned = super().clean()
-        email = cleaned.get("email", "").strip().lower()
+        cleaned  = super().clean()
+        email    = cleaned.get("email", "").strip().lower()
         password = cleaned.get("password", "")
         if email and password:
             user = authenticate(self.request, username=email, password=password)
@@ -101,30 +86,8 @@ class LoginForm(forms.Form):
         return self._user
 
 
-class OTPForm(forms.Form):
-    """One-time passcode entry (6-digit SMS OTP)."""
-
-    otp = forms.CharField(
-        label="Verification Code",
-        max_length=6,
-        min_length=4,
-        widget=forms.TextInput(attrs={
-            "autocomplete": "one-time-code",
-            "inputmode": "numeric",
-            "class": "form-input",
-            "placeholder": "6-digit code",
-        }),
-    )
-
-    def clean_otp(self):
-        otp = self.cleaned_data["otp"].strip()
-        if not otp.isdigit():
-            raise ValidationError("OTP must be numeric.")
-        return otp
-
-
 class PasswordResetRequestForm(forms.Form):
-    """Request a password reset email."""
+    """Start a password reset by email."""
 
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={"autocomplete": "email", "class": "form-input"})
@@ -132,7 +95,7 @@ class PasswordResetRequestForm(forms.Form):
 
 
 class PasswordResetConfirmForm(forms.Form):
-    """Set a new password after following the reset link."""
+    """Set a new password after clicking the reset link."""
 
     password = forms.CharField(
         label="New Password",
@@ -145,10 +108,7 @@ class PasswordResetConfirmForm(forms.Form):
 
     def clean_password(self):
         password = self.cleaned_data.get("password", "")
-        try:
-            validate_password(password)
-        except ValidationError as e:
-            raise e
+        validate_password(password)
         return password
 
     def clean(self):

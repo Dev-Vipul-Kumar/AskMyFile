@@ -142,9 +142,8 @@ def user_detail(request, user_id):
                 messages.success(request, f"Staff status {'granted' if target.is_staff else 'removed'}.")
         elif action == "force_verify":
             target.email_verified = True
-            target.phone_verified = True
-            target.save(update_fields=["email_verified", "phone_verified"])
-            messages.success(request, "User marked as fully verified.")
+            target.save(update_fields=["email_verified"])
+            messages.success(request, "User email marked as verified.")
         elif action == "revoke_all_shares":
             revoked = 0
             for share in Share.objects.filter(owner_user=target, status=Share.STATUS_ACTIVE):
@@ -168,33 +167,26 @@ def user_detail(request, user_id):
 @require_http_methods(["GET", "POST"])
 def user_create(request):
     """Admin creates a new user account (pre-verified, no email/OTP flow)."""
-    import re
     error = None
 
     if request.method == "POST":
         email        = request.POST.get("email", "").strip().lower()
         display_name = request.POST.get("display_name", "").strip()
-        phone_number = request.POST.get("phone_number", "").strip()
         password     = request.POST.get("password", "")
         is_staff     = request.POST.get("is_staff") == "1"
 
-        # Basic validation
         if not email:
             error = "Email is required."
         elif User.objects.filter(email=email).exists():
             error = f"A user with email '{email}' already exists."
         elif not password or len(password) < 8:
             error = "Password must be at least 8 characters."
-        elif phone_number and not re.match(r"^\+?[1-9]\d{6,14}$", phone_number):
-            error = "Enter a valid phone number (e.g. +91XXXXXXXXXX)."
 
         if not error:
             new_user = User(
                 email=email,
                 display_name=display_name,
-                phone_number=phone_number,
-                email_verified=True,   # admin-created accounts are pre-verified
-                phone_verified=True,
+                email_verified=True,
                 is_active=True,
                 is_staff=is_staff,
             )
@@ -215,26 +207,19 @@ def user_edit(request, user_id):
     error  = None
 
     if request.method == "POST":
-        display_name = request.POST.get("display_name", "").strip()
-        phone_number = request.POST.get("phone_number", "").strip()
-        new_password = request.POST.get("new_password", "").strip()
-        is_staff     = request.POST.get("is_staff") == "1"
-        is_active    = request.POST.get("is_active") == "1"
+        display_name   = request.POST.get("display_name", "").strip()
+        new_password   = request.POST.get("new_password", "").strip()
+        is_staff       = request.POST.get("is_staff") == "1"
+        is_active      = request.POST.get("is_active") == "1"
         email_verified = request.POST.get("email_verified") == "1"
-        phone_verified = request.POST.get("phone_verified") == "1"
 
-        if phone_number and not re.match(r"^\+?[1-9]\d{6,14}$", phone_number):
-            error = "Enter a valid phone number (e.g. +91XXXXXXXXXX)."
-        elif new_password and len(new_password) < 8:
+        if new_password and len(new_password) < 8:
             error = "New password must be at least 8 characters."
 
         if not error:
             target.display_name  = display_name
-            target.phone_number  = phone_number
             target.email_verified = email_verified
-            target.phone_verified = phone_verified
             target.is_active     = is_active
-            # Don't let admin accidentally demote themselves
             if target != request.user:
                 target.is_staff = is_staff
             if new_password:
