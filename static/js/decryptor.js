@@ -62,12 +62,70 @@
     if (progressF) progressF.classList.add("indeterminate");
   }
 
+  function setProgressPct(label, pct) {
+    if (!progressW) return;
+    progressW.classList.remove("hidden");
+    if (progressL) progressL.textContent = label;
+    if (progressF) {
+      progressF.classList.remove("indeterminate");
+      progressF.style.width = pct + "%";
+    }
+  }
+
   function hideProgress() {
     progressW && progressW.classList.add("hidden");
-    progressF && progressF.classList.remove("indeterminate");
+    if (progressF) {
+      progressF.classList.remove("indeterminate");
+      progressF.style.width = "0%";
+    }
   }
 
   if (!decryptBtn) return;
+
+  /**
+   * Download large files using chunked reading via ReadableStream
+   * to avoid loading the entire response into memory at once with arrayBuffer().
+   * Falls back to arrayBuffer() if ReadableStream is not available.
+   */
+  async function downloadChunked(url, totalSize) {
+    const response = await fetch(url, { method: "GET" });
+
+    if (!response.ok) {
+      return { ok: false, status: response.status };
+    }
+
+    // If the file is small (<50MB), just use arrayBuffer
+    if (!totalSize || totalSize < 50 * 1024 * 1024 || !response.body) {
+      const buf = await response.arrayBuffer();
+      return { ok: true, data: new Uint8Array(buf) };
+    }
+
+    // Stream the response body into a pre-allocated buffer
+    const reader = response.body.getReader();
+    const result = new Uint8Array(totalSize);
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (received + value.length > totalSize) {
+        // More data than expected, reallocate
+        const newBuf = new Uint8Array(received + value.length + 1024 * 1024);
+        newBuf.set(result.subarray(0, received));
+        newBuf.set(value, received);
+        received += value.length;
+        return { ok: true, data: newBuf.subarray(0, received) };
+      }
+      result.set(value, received);
+      received += value.length;
+
+      // Update progress
+      const pct = Math.round((received / totalSize) * 100);
+      setProgressPct(`Downloading… ${pct}%`, pct);
+    }
+
+    return { ok: true, data: result.subarray(0, received) };
+  }
 
   decryptBtn.addEventListener("click", async () => {
     clearErr();
@@ -106,30 +164,26 @@
         decryptBtn.disabled = false; return;
       }
 
-      const { share_id, salt_b64, iv_b64, pbkdf2_iterations, share_type } = vdata;
+      const { share_id, salt_b64, iv_b64, pbkdf2_iterations, share_type, ciphertext_size } = vdata;
 
+      // Use chunked download for large files to avoid OOM
       setProgress("Downloading encrypted content…");
 
-      let dlRes;
-      try {
-        dlRes = await fetch(`/shares/${share_id}/download/`, { method: "GET" });
-      } catch {
-        hideProgress(); showErr("Download failed — network error."); decryptBtn.disabled = false; return;
-      }
+      const dlResult = await downloadChunked(`/shares/${share_id}/download/`, ciphertext_size);
 
-      if (!dlRes.ok) {
+      if (!dlResult.ok) {
         hideProgress();
-        showErr(dlRes.status === 403 ? "Session expired — please re-enter your code." : "Content unavailable.");
+        showErr(dlResult.status === 403 ? "Session expired — please re-enter your code." : "Content unavailable.");
         decryptBtn.disabled = false; return;
       }
 
       setProgress("Decrypting in your browser…");
-      const ctBuf = await dlRes.arrayBuffer();
+      const ctBuf = dlResult.data;
 
       let result;
       try {
         result = await AskMyCrypto.decryptFile(
-          new Uint8Array(ctBuf), otp, salt_b64, iv_b64,
+          ctBuf, otp, salt_b64, iv_b64,
           pbkdf2_iterations || ITERS
         );
       } catch (err) {
@@ -150,7 +204,7 @@
             textOut.style.display = "";
           } else {
             const pre = document.createElement("pre");
-            pre.style.cssText = "background:var(--input-bg);border:1px solid var(--border);border-radius:8px;padding:1rem;color:var(--text);font-family:var(--font);font-size:0.9rem;white-space:pre-wrap;word-break:break-word;margin-top:1rem;max-height:300px;overflow-y:auto;";
+            pre.style.cssText = "background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;color:var(--text);font-family:var(--font);font-size:0.85rem;white-space:pre-wrap;word-break:break-word;margin-top:0.75rem;max-height:300px;overflow-y:auto;";
             pre.textContent = textContent;
             successBox.appendChild(pre);
           }

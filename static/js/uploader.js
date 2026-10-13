@@ -74,6 +74,16 @@
     if (progressLabel) progressLabel.textContent = label;
   }
 
+  function setProgressPct(label, pct) {
+    if (!progressWrap) return;
+    progressWrap.classList.remove("hidden");
+    if (progressLabel) progressLabel.textContent = label;
+    if (progressFill) {
+      progressFill.classList.remove("indeterminate");
+      progressFill.style.width = pct + "%";
+    }
+  }
+
   function hideProgress() {
     progressWrap && progressWrap.classList.add("hidden");
     if (progressFill) { progressFill.classList.remove("indeterminate"); progressFill.style.width = "0%"; }
@@ -116,8 +126,7 @@
 
     if (dropZone) {
       dropZone.style.display = isText ? "none" : "";
-      dropZone.style.borderColor = type === "movie" ? "rgba(245,158,11,0.6)" : "";
-      dropZone.style.boxShadow   = type === "movie" ? "0 0 20px rgba(245,158,11,0.1)" : "";
+      dropZone.style.borderColor = type === "movie" ? "rgba(232,95,77,0.4)" : "";
     }
     if (textAreaWrap) textAreaWrap.style.display = isText ? "" : "none";
     if (fileInfo) fileInfo.classList.add("hidden");
@@ -218,8 +227,7 @@
         form.append("share_type",        shareType);
         form.append("otp_hash",          otpHash);
 
-        setProgress("Uploading… 0%");
-        if (progressFill) progressFill.classList.remove("indeterminate");
+        setProgressPct("Uploading… 0%", 0);
 
         let uploadResult;
         try {
@@ -228,8 +236,7 @@
             xhr.upload.addEventListener("progress", e => {
               if (e.lengthComputable) {
                 const pct = Math.round((e.loaded / e.total) * 100);
-                if (progressLabel) progressLabel.textContent = `Uploading… ${pct}%`;
-                if (progressFill)  progressFill.style.width = pct + "%";
+                setProgressPct(`Uploading… ${pct}%`, pct);
               }
             });
             xhr.addEventListener("load", () => {
@@ -240,7 +247,7 @@
             xhr.addEventListener("timeout",  () => reject(new Error("Upload timed out")));
             xhr.open("POST", "/shares/create/");
             xhr.setRequestHeader("X-CSRFToken", csrf());
-            xhr.timeout = 300000;
+            xhr.timeout = 600000; // 10 minutes for large files
             xhr.send(form);
           });
         } catch (uploadErr) {
