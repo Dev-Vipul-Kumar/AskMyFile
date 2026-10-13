@@ -25,6 +25,7 @@ from .services import (
     get_daily_limit,
     get_file_bytes,
     get_quota_remaining,
+    _private_storage,  # reuse the same storage instance from services
 )
 
 logger = logging.getLogger(__name__)
@@ -289,17 +290,30 @@ def share_download(request, share_id: int):
     if not ok:
         return HttpResponse("Share unavailable.", status=410)
 
-    file_bytes = get_file_bytes(share)
-    if file_bytes is None:
-        logger.error("File missing in storage for share #%s", share.pk)
-        return HttpResponse("File not found.", status=404)
-
+    # Clear session key after one download
     del request.session[f"otp_verified_{share_id}"]
     request.session.modified = True
 
-    response = HttpResponse(file_bytes, content_type="application/octet-stream")
+    # Stream the file in chunks instead of loading entire file into RAM
+    from django.http import StreamingHttpResponse
+
+    def file_iterator(storage_key, chunk_size=4 * 1024 * 1024):
+        try:
+            with _private_storage.open(storage_key, "rb") as f:
+                while True:
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+        except Exception as exc:
+            logger.error("Streaming error for share #%s: %s", share_id, exc)
+
+    response = StreamingHttpResponse(
+        file_iterator(share.storage_key),
+        content_type="application/octet-stream",
+    )
     response["Content-Disposition"] = 'attachment; filename="encrypted_payload.bin"'
-    response["Content-Length"]      = len(file_bytes)
+    response["Content-Length"]      = share.ciphertext_size
     response["Referrer-Policy"]     = "no-referrer"
     response["X-Content-Type-Options"] = "nosniff"
     return response

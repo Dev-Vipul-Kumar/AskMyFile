@@ -10,7 +10,7 @@
 (function () {
   "use strict";
 
-  const ITERS = (typeof PBKDF2_ITERS !== "undefined") ? PBKDF2_ITERS : 600000;
+  const ITERS = (typeof PBKDF2_ITERS !== "undefined") ? PBKDF2_ITERS : 100000;
 
   /* ── accept strings for each share type ── */
   const ACCEPT = {
@@ -223,8 +223,7 @@
           createBtn.disabled = false; return;
         }
 
-        /* Step 4: Upload ciphertext + hash (NOT the raw OTP) */
-        setProgress("Uploading encrypted file…");
+        /* Build form data */
         const form = new FormData();
         form.append("file_data",         new Blob([enc.ciphertext], { type: "application/octet-stream" }), "payload.bin");
         form.append("salt_b64",          enc.saltB64);
@@ -232,26 +231,52 @@
         form.append("algorithm_version", enc.algorithmVersion);
         form.append("original_filename", selectedFile.name);
         form.append("share_type",        shareType);
-        form.append("otp_hash",          otpHash);  // server stores this, never sees raw OTP
+        form.append("otp_hash",          otpHash);
 
-        let res;
+        /* Step 4: Upload ciphertext + hash with real progress tracking */
+        setProgress("Uploading… 0%");
+        if (progressFill) progressFill.classList.remove("indeterminate");
+
+        let uploadResult;
         try {
-          res = await fetch("/shares/create/", {
-            method:  "POST",
-            headers: { "X-CSRFToken": csrf() },
-            body:    form,
+          uploadResult = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+
+          // Real upload progress
+          xhr.upload.addEventListener("progress", e => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              if (progressLabel) progressLabel.textContent = `Uploading… ${pct}%`;
+              if (progressFill)  progressFill.style.width = pct + "%";
+            }
           });
-        } catch {
-          hideProgress(); showErr("Network error — check your connection.");
+
+          xhr.addEventListener("load", () => {
+            try {
+              resolve({ status: xhr.status, data: JSON.parse(xhr.responseText) });
+            } catch {
+              resolve({ status: xhr.status, data: null });
+            }
+          });
+          xhr.addEventListener("error", () => reject(new Error("Network error")));
+          xhr.addEventListener("timeout", () => reject(new Error("Upload timed out")));
+
+          xhr.open("POST", "/shares/create/");
+          xhr.setRequestHeader("X-CSRFToken", csrf());
+          xhr.timeout = 300000;  // 5 minute timeout for large files
+          xhr.send(form);
+          });
+        } catch (uploadErr) {
+          hideProgress(); showErr(uploadErr.message || "Upload failed — check your connection.");
           createBtn.disabled = false; return;
         }
 
         hideProgress();
-        const data = await res.json().catch(() => null);
+        const { status, data } = uploadResult;
         if (!data) { showErr("Unexpected server response."); createBtn.disabled = false; return; }
 
         /* ── Error handling ── */
-        if (res.status === 429 && data.error === "quota_exceeded") {
+        if (status === 429 && data.error === "quota_exceeded") {
           showErr("Daily limit reached. Sign in or upgrade your plan.");
           createBtn.disabled = false; return;
         }

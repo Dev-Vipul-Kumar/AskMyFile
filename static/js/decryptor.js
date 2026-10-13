@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  const ITERS = (typeof PBKDF2_ITERS !== "undefined") ? PBKDF2_ITERS : 600000;
+  const ITERS = (typeof PBKDF2_ITERS !== "undefined") ? PBKDF2_ITERS : 100000;
 
   /* ── OTP boxes ── */
   const boxes     = [...document.querySelectorAll(".otp-box")];

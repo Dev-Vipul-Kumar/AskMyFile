@@ -194,9 +194,16 @@ def create_share(
 # ---------------------------------------------------------------------------
 
 def get_file_bytes(share: Share) -> bytes | None:
+    """Read file bytes from private storage in chunks to avoid OOM on large files."""
     try:
+        chunks = []
         with _private_storage.open(share.storage_key, "rb") as f:
-            return f.read()
+            while True:
+                chunk = f.read(4 * 1024 * 1024)   # read 4 MB at a time
+                if not chunk:
+                    break
+                chunks.append(chunk)
+        return b"".join(chunks)
     except Exception:
         return None
 

@@ -176,10 +176,15 @@ if DEBUG:
     CSRF_USE_SESSIONS       = False
 
 # ── File upload limits ────────────────────────────────────────────────────────
-MAX_FILE_SIZE_BYTES      = int(os.environ.get("MAX_FILE_SIZE_BYTES",      str(100 * 1024 * 1024)))
-FREE_MAX_FILE_SIZE_BYTES = int(os.environ.get("FREE_MAX_FILE_SIZE_BYTES", str(500 * 1024 * 1024)))
-DATA_UPLOAD_MAX_MEMORY_SIZE = FREE_MAX_FILE_SIZE_BYTES + (2 * 1024 * 1024)
-FILE_UPLOAD_MAX_MEMORY_SIZE = FREE_MAX_FILE_SIZE_BYTES + (2 * 1024 * 1024)
+MAX_FILE_SIZE_BYTES      = int(os.environ.get("MAX_FILE_SIZE_BYTES",      str(100 * 1024 * 1024)))   # 100 MB guests
+FREE_MAX_FILE_SIZE_BYTES = int(os.environ.get("FREE_MAX_FILE_SIZE_BYTES", str(500 * 1024 * 1024)))   # 500 MB free users
+
+# Write uploads to disk (not RAM) once they exceed 2.5 MB.
+# This prevents OOM kills on Render when uploading large videos.
+# Django default is 2.5 MB in memory before spooling to disk.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2621440          # 2.5 MB — larger files go to temp disk
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440          # same threshold for file uploads
+FILE_UPLOAD_TEMP_DIR = None                    # use system temp dir (auto-cleaned)
 
 # ── Movie size limits per plan ────────────────────────────────────────────────
 # 0 = not allowed on that plan,  -1 = unlimited
@@ -209,7 +214,7 @@ SMS_OTP_MAX_ATTEMPTS   = int(os.environ.get("SMS_OTP_MAX_ATTEMPTS",   "5"))
 AES_ALGORITHM     = "AES-GCM"
 AES_GCM_IV_BYTES  = 12
 PBKDF2_SALT_BYTES = 16
-PBKDF2_ITERATIONS = int(os.environ.get("PBKDF2_ITERATIONS", "600000"))
+PBKDF2_ITERATIONS = int(os.environ.get("PBKDF2_ITERATIONS", "100000"))  # reduced from 600k — faster for browser
 
 # ── Razorpay ──────────────────────────────────────────────────────────────────
 RAZORPAY_KEY_ID         = os.environ.get("RAZORPAY_KEY_ID",         "")
