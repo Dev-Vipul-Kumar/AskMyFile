@@ -74,12 +74,9 @@ def deliver_otp(share: Share, raw_otp: str, channel: str, user=None) -> None:
         except Exception as exc:
             logger.error("OTP email FAILED for share #%s to %s: %s", share.pk, user.email, exc)
 
-    elif channel == ShareOTPDelivery.CHANNEL_SMS and user and getattr(user, "phone_number", ""):
-        # TODO: wire to SMS provider using settings.SMS_PROVIDER_KEY
-        logger.info(
-            "[DEV] SMS OTP for share #%s → %s: %s",
-            share.pk, user.phone_number, raw_otp,
-        )
+    elif channel == ShareOTPDelivery.CHANNEL_SMS:
+        # SMS provider not configured — log only
+        logger.info("[DEV] SMS OTP for share #%s: %s", share.pk, raw_otp)
 
     # CHANNEL_SCREEN: OTP is returned in the API response — no delivery needed here
 

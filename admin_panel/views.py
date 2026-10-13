@@ -39,7 +39,7 @@ def dashboard(request):
 
     # ── Stats ──
     total_users     = User.objects.count()
-    verified_users  = User.objects.filter(email_verified=True, phone_verified=True).count()
+    verified_users  = User.objects.filter(email_verified=True).count()
     new_today       = User.objects.filter(created_at__date=today).count()
     total_shares    = Share.objects.count()
     active_shares   = Share.objects.filter(status=Share.STATUS_ACTIVE, expires_at__gt=now).count()
@@ -102,11 +102,11 @@ def user_list(request):
     users = User.objects.annotate(share_count=Count("shares")).order_by("-created_at")
 
     if q:
-        users = users.filter(Q(email__icontains=q) | Q(display_name__icontains=q) | Q(phone_number__icontains=q))
+        users = users.filter(Q(email__icontains=q) | Q(display_name__icontains=q))
     if filt == "verified":
-        users = users.filter(email_verified=True, phone_verified=True)
+        users = users.filter(email_verified=True)
     elif filt == "unverified":
-        users = users.filter(Q(email_verified=False) | Q(phone_verified=False))
+        users = users.filter(email_verified=False)
     elif filt == "staff":
         users = users.filter(is_staff=True)
     elif filt == "subscribed":
