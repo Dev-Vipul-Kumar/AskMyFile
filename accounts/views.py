@@ -29,9 +29,13 @@ logger = logging.getLogger(__name__)
 # Email helper
 # ---------------------------------------------------------------------------
 
-def _send_verification_email(request, user: User) -> None:
+def _send_verification_email(request, user: User) -> tuple[bool, str]:
+    """
+    Send email verification link.
+    Returns (True, verify_url) on success, (False, error_message) on failure.
+    """
     site_url  = getattr(settings, "SITE_URL", "").rstrip("/")
-    ttl       = settings.EMAIL_TOKEN_TTL_HOURS * 60   # minutes
+    ttl       = settings.EMAIL_TOKEN_TTL_HOURS * 60
     raw_token = VerificationChallenge.create_for_user(
         user, VerificationChallenge.CHANNEL_EMAIL, ttl_minutes=ttl
     )
@@ -49,11 +53,13 @@ def _send_verification_email(request, user: User) -> None:
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
-            fail_silently=True,
+            fail_silently=False,
         )
         logger.info("Verification email sent to %s", user.email)
+        return True, verify_url
     except Exception as exc:
         logger.error("Verification email FAILED for %s: %s", user.email, exc)
+        return False, str(exc)
 
 
 # ---------------------------------------------------------------------------
@@ -68,12 +74,19 @@ def register(request):
     form = RegistrationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
-        _send_verification_email(request, user)
+        ok, result = _send_verification_email(request, user)
         request.session["pending_verify_user_id"] = user.pk
-        messages.success(
-            request,
-            "Account created! Please check your email to verify your address.",
-        )
+        if ok:
+            messages.success(
+                request,
+                "Account created! Please check your email to verify your address.",
+            )
+        else:
+            messages.warning(
+                request,
+                "Account created but we could not send the verification email. "
+                "Please use the 'Resend' button below.",
+            )
         return redirect("accounts:resend_email_verification")
 
     return render(request, "accounts/register.html", {"form": form})
@@ -149,12 +162,18 @@ def resend_email_verification(request):
                     "email_not_found": email_not_found,
                 })
 
-        _send_verification_email(request, user)
-        messages.success(request, "A new verification email has been sent. Please check your inbox.")
-        return render(request, "accounts/resend_email_verification.html", {
-            "user_obj": user,
-            "sent": True,
-        })
+        ok, result = _send_verification_email(request, user)
+        if ok:
+            return render(request, "accounts/resend_email_verification.html", {
+                "user_obj": user,
+                "sent": True,
+            })
+        else:
+            return render(request, "accounts/resend_email_verification.html", {
+                "user_obj": user,
+                "sent": False,
+                "email_error": result,
+            })
 
     return render(request, "accounts/resend_email_verification.html", {
         "user_obj": user,

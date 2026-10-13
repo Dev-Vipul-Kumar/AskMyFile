@@ -17,6 +17,24 @@
         Back to Sign In
       </a>
 
+    {% elif email_error %}
+      <!-- Email send failed — show the real error -->
+      <div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>
+      <h1 style="font-size:1.5rem;">Email Could Not Be Sent</h1>
+      <p style="color:var(--text-muted);margin-top:0.5rem;">
+        We tried to send a verification email to
+        <strong style="color:var(--cyan);">{{ user_obj.email }}</strong>
+        but it failed. Please try again in a moment.
+      </p>
+      <div class="alert alert-error" style="margin-top:1rem;text-align:left;font-size:0.78rem;word-break:break-all;">
+        <strong>Error:</strong> {{ email_error }}
+      </div>
+      <form method="post" style="margin-top:1rem;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary btn-full btn-lg">🔄 Try Again</button>
+      </form>
+      <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-full" style="margin-top:0.5rem;">Back to Sign In</a>
+
     {% elif show_email_field %}
       <!-- Session expired — ask for email -->
       <div style="font-size:2.5rem;margin-bottom:1rem;">📧</div>
