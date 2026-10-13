@@ -10,7 +10,7 @@
       <p style="color:var(--text-muted);margin-top:0.5rem;">
         Your email address has been confirmed. You can now sign in.
       </p>
-      <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-full btn-lg" style="margin-top:1.5rem;">
+      <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-full btn-lg" style="margin-top:1rem;">
         Sign In →
       </a>
     {% else %}
@@ -20,7 +20,7 @@
         This link may be invalid or has already been used.
       </p>
       <a href="{% url 'accounts:resend_email_verification' %}"
-         class="btn btn-outline-cyan btn-full" style="margin-top:1.5rem;">
+         class="btn btn-outline-cyan btn-full" style="margin-top:1rem;">
         Request a New Link
       </a>
     {% endif %}

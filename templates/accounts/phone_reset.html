@@ -62,7 +62,7 @@
         <div style="font-size:2.5rem;margin-bottom:0.5rem;">🔢</div>
         <h1 style="font-size:1.5rem;">Enter the Code</h1>
         <p class="auth-subtitle" style="margin-top:0.4rem;">
-          Enter the 6-digit code sent to <strong id="phoneDisplay" style="color:var(--cyan);"></strong>
+          Enter the 6-digit code sent to <strong id="phoneDisplay" style="color:var(--accent);"></strong>
         </p>
       </div>
 
@@ -145,19 +145,19 @@
     color: var(--text-dim); transition: all 0.35s ease; flex-shrink: 0;
   }
   .step-dot.active {
-    background: linear-gradient(135deg, var(--cyan), var(--violet));
-    border-color: var(--cyan); color: #000;
-    box-shadow: 0 0 12px rgba(0,245,255,0.5);
+    background: var(--accent);
+    border-color: var(--accent); color: #fff;
+    box-shadow: 0 0 8px rgba(201,72,59,0.3);
   }
   .step-dot.done {
-    background: rgba(0,255,163,0.15);
-    border-color: var(--green); color: var(--green);
+    background: var(--badge-bg);
+    border-color: var(--secondary); color: var(--secondary);
   }
   .step-line {
     flex: 1; height: 2px; background: var(--glass-border);
     margin: 0 4px; transition: background 0.35s ease;
   }
-  .step-line.done { background: var(--green); }
+  .step-line.done { background: var(--secondary); }
 </style>
 
 {% endblock %}

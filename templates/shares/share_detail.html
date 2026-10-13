@@ -4,10 +4,10 @@
 {% block meta_description %}Download and decrypt a securely shared file. Enter the passphrase to access the file.{% endblock %}
 
 {% block content %}
-<div class="auth-page" style="min-height:calc(100vh - 120px);">
-  <div class="auth-card card" style="max-width:480px;">
-    <div style="text-align:center;margin-bottom:1.25rem;">
-      <div style="font-size:3rem;" aria-hidden="true">🔐</div>
+<div class="auth-page" style="min-height:calc(100vh - 100px);">
+  <div class="auth-card card" style="max-width:460px;">
+    <div style="text-align:center;margin-bottom:0.75rem;">
+      <div style="font-size:2.5rem;" aria-hidden="true">🔐</div>
       <h1>Decrypt Your File</h1>
       <p class="text-muted mt-1">
         Enter the passphrase the sender gave you to decrypt and download this file.
@@ -15,9 +15,9 @@
       </p>
     </div>
 
-    <!-- Share info (safe metadata only – no filename or MIME before decryption) -->
-    <div class="card" style="background:var(--surface2);border-color:var(--border);margin-bottom:1rem;padding:0.9rem 1rem;">
-      <div style="font-size:0.85rem;color:var(--text-muted);display:flex;flex-direction:column;gap:0.3rem;">
+    <!-- Share info -->
+    <div class="card" style="background:var(--surface2);border-color:var(--border);margin-bottom:0.75rem;padding:0.65rem 0.85rem;">
+      <div style="font-size:0.78rem;color:var(--text-muted);display:flex;flex-direction:column;gap:0.2rem;">
         <div class="flex-between">
           <span>Encrypted payload</span>
           <span>{{ ciphertext_size|filesizeformat }}</span>
@@ -64,7 +64,7 @@
       <div class="alert alert-success">✅ File decrypted successfully! Your download should start automatically.</div>
     </div>
 
-    <p class="text-muted mt-2" style="font-size:0.78rem;text-align:center;">
+    <p class="text-muted mt-1" style="font-size:0.72rem;text-align:center;">
       Wrong passphrase? Decryption will fail safely with no partial data.
     </p>
   </div>

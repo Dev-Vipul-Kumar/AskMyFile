@@ -1,90 +1,61 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Enter Access Code – AskMyFile{% endblock %}
-{% block meta_description %}Enter your 6-digit access code to decrypt and download your shared file.{% endblock %}
+{% block title %}Receive File – AskMyFile{% endblock %}
+{% block meta_description %}Enter your 6-digit OTP code to securely receive an encrypted file.{% endblock %}
 
 {% block content %}
 <div class="auth-page">
+  <div class="auth-card glass-card fade-in" style="max-width:440px;">
 
-  <!-- animated glow behind the card -->
-  <div style="position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(0,245,255,0.07),transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;animation:brand-pulse 4s ease-in-out infinite;"></div>
-
-  <div class="auth-card glass-card fade-in" style="max-width:460px;" role="main">
-
-    <div style="text-align:center;margin-bottom:1.75rem;">
-      <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--cyan),var(--violet));border-radius:20px;display:grid;place-items:center;margin:0 auto 1rem;font-size:1.8rem;box-shadow:var(--glow-cyan);">🔓</div>
-      <h1 style="font-size:1.6rem;margin-bottom:0.4rem;">Enter Access Code</h1>
-      <p class="auth-subtitle">Type the 6-digit code the sender shared with you.</p>
+    <div style="text-align:center;margin-bottom:1rem;">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem;" aria-hidden="true">🔓</div>
+      <h1 style="font-size:1.5rem;">Enter Access Code</h1>
+      <p class="auth-subtitle">Type the 6-digit code the sender gave you.</p>
     </div>
 
-    <!-- 6-box OTP input -->
-    <div class="otp-group" role="group" aria-label="6-digit access code input">
+    <!-- 6-digit OTP input boxes -->
+    <div class="otp-group" role="group" aria-label="6-digit access code">
       <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
              autocomplete="one-time-code" aria-label="Digit 1" />
-      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
-             aria-label="Digit 2" />
-      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
-             aria-label="Digit 3" />
-      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
-             aria-label="Digit 4" />
-      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
-             aria-label="Digit 5" />
-      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
-             aria-label="Digit 6" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 2" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 3" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 4" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 5" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 6" />
     </div>
 
-    <p class="text-dim text-center mb-2" style="font-size:0.78rem;">
-      ← Use arrow keys, backspace, or paste to fill in the code
-    </p>
+    <div id="decryptError" class="hidden alert alert-error" role="alert" aria-live="assertive"></div>
 
-    <!-- Error -->
-    <div id="decryptError" class="alert alert-error hidden" role="alert" aria-live="assertive"></div>
-
-    <!-- Progress -->
     <div id="progressWrap" class="progress-wrap hidden">
-      <p class="progress-label">
-        <span class="spin-ring"></span>
-        <span id="progressLabel">Verifying…</span>
-      </p>
+      <div class="progress-label"><span id="progressLabel">Verifying…</span></div>
       <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
     </div>
 
-    <!-- Decrypt button -->
-    <button type="button" id="decryptBtn" class="btn btn-primary btn-full btn-lg" disabled>
-      🔓 Unlock &amp; Download
+    <button type="button" class="btn btn-primary btn-full btn-lg" id="decryptBtn" disabled style="margin-top:0.5rem;">
+      🔓 Access File
     </button>
 
-    <!-- Success -->
-    <div id="decryptSuccess" class="hidden" style="margin-top:1.25rem;text-align:center;">
-      <div class="otp-reveal" style="padding:1.5rem;">
-        <div style="font-size:2.5rem;margin-bottom:0.5rem;animation:float 2s ease-in-out infinite;">✅</div>
-        <p style="font-weight:700;color:var(--green);margin-bottom:0.25rem;">File decrypted successfully!</p>
-        <p id="statusText" style="font-size:0.82rem;color:var(--text-muted);">Your download should start automatically.</p>
-      </div>
+    <div id="decryptSuccess" class="hidden mt-2">
+      <div class="alert alert-success">✅ File decrypted successfully! Your download should start automatically.</div>
     </div>
 
-    <div style="margin-top:1.75rem;padding-top:1.25rem;border-top:1px solid var(--glass-border);">
-      <p class="text-dim text-center" style="font-size:0.78rem;line-height:1.7;">
-        🔒 Decryption happens entirely in your browser.<br>
-        The code is never stored in plaintext on our servers.<br>
-        No account required to receive files.
-      </p>
+    <!-- Text output for text shares -->
+    <div id="textOutputWrap" class="hidden mt-2">
+      <pre id="decryptedText" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;color:var(--text);font-family:var(--font);font-size:0.82rem;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;"></pre>
     </div>
 
-    <div class="flex-center" style="gap:1rem;margin-top:1.25rem;flex-wrap:wrap;">
-      <a href="{% url 'core:landing' %}" class="btn btn-ghost btn-sm">← Share a file instead</a>
-      <a href="{% url 'accounts:register' %}" class="btn btn-outline-cyan btn-sm">Register for more</a>
-    </div>
-
+    <p id="statusText" class="text-muted mt-1" style="font-size:0.72rem;text-align:center;">
+      Enter all 6 digits to proceed. Decryption happens in your browser.
+    </p>
   </div>
 </div>
+
+<script>
+  const CSRF_TOKEN = "{{ csrf_token }}";
+</script>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-  const PBKDF2_ITERS = {{ pbkdf2_iterations }};
-  const CSRF_TOKEN   = "{{ csrf_token }}";
-</script>
 <script src="{% static 'js/crypto.js' %}"></script>
 <script src="{% static 'js/decryptor.js' %}"></script>
 {% endblock %}

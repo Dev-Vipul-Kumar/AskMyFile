@@ -10,7 +10,7 @@
       <h1 style="font-size:1.5rem;">Email Sent!</h1>
       <p style="color:var(--text-muted);margin-top:0.5rem;">
         A verification link has been sent to
-        <strong style="color:var(--cyan);">{{ user_obj.email }}</strong>.
+        <strong style="color:var(--accent);">{{ user_obj.email }}</strong>.
         Check your inbox and spam folder.
       </p>
       <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-full" style="margin-top:1.5rem;">
@@ -23,7 +23,7 @@
       <h1 style="font-size:1.5rem;">Email Could Not Be Sent</h1>
       <p style="color:var(--text-muted);margin-top:0.5rem;">
         We tried to send a verification email to
-        <strong style="color:var(--cyan);">{{ user_obj.email }}</strong>
+        <strong style="color:var(--accent);">{{ user_obj.email }}</strong>
         but it failed. Please try again in a moment.
       </p>
       <div class="alert alert-error" style="margin-top:1rem;text-align:left;font-size:0.78rem;word-break:break-all;">
@@ -70,7 +70,7 @@
       <h1 style="font-size:1.5rem;">Verify Your Email</h1>
       <p style="color:var(--text-muted);margin-top:0.4rem;">
         We sent a verification link to
-        <strong style="color:var(--cyan);">{{ user_obj.email }}</strong>.
+        <strong style="color:var(--accent);">{{ user_obj.email }}</strong>.
         Check your inbox and spam folder.
       </p>
 

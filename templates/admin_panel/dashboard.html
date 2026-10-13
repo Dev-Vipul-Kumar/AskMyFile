@@ -7,34 +7,34 @@
 
 <!-- Stat strip -->
 <div class="stat-grid">
-  <div class="glass-card stat-card" style="--stat-color:var(--cyan-dim);">
+  <div class="glass-card stat-card">
     <span class="stat-icon">👥</span>
     <div class="stat-value">{{ total_users }}</div>
     <div class="stat-label">Total Users</div>
     <div class="stat-change">+{{ new_today }} today</div>
   </div>
-  <div class="glass-card stat-card" style="--stat-color:rgba(0,255,163,0.1);">
+  <div class="glass-card stat-card">
     <span class="stat-icon">✅</span>
     <div class="stat-value">{{ verified_users }}</div>
     <div class="stat-label">Verified Users</div>
   </div>
-  <div class="glass-card stat-card" style="--stat-color:var(--violet-dim);">
+  <div class="glass-card stat-card">
     <span class="stat-icon">📁</span>
     <div class="stat-value">{{ total_shares }}</div>
     <div class="stat-label">Total Shares</div>
     <div class="stat-change">{{ shares_today }} today</div>
   </div>
-  <div class="glass-card stat-card" style="--stat-color:rgba(0,255,163,0.1);">
+  <div class="glass-card stat-card">
     <span class="stat-icon">🔗</span>
     <div class="stat-value">{{ active_shares }}</div>
     <div class="stat-label">Active Shares</div>
   </div>
-  <div class="glass-card stat-card" style="--stat-color:rgba(245,158,11,0.1);">
+  <div class="glass-card stat-card">
     <span class="stat-icon">💳</span>
     <div class="stat-value">{{ active_subs }}</div>
     <div class="stat-label">Active Subs</div>
   </div>
-  <div class="glass-card stat-card" style="--stat-color:rgba(245,158,11,0.1);">
+  <div class="glass-card stat-card">
     <span class="stat-icon">💾</span>
     <div class="stat-value">{{ total_bytes_mb }}</div>
     <div class="stat-label">MB Stored</div>
@@ -42,7 +42,7 @@
 </div>
 
 <!-- Chart + share types -->
-<div style="display:grid;grid-template-columns:2fr 1fr;gap:1.25rem;margin-bottom:1.5rem;" class="responsive-grid-1">
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:0.75rem;margin-bottom:1rem;" class="responsive-grid-1">
 
   <div class="admin-section">
     <div class="admin-section-header">
@@ -56,17 +56,17 @@
       <span class="admin-section-title">📂 Share Types</span>
     </div>
     {% for stype, count in type_counts.items %}
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.04);">
-      <span style="font-size:0.88rem;color:var(--text-muted);">
-        {% if stype == 'file' %}📄 File{% elif stype == 'folder' %}📁 Folder{% else %}📝 Document{% endif %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.35rem 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:0.82rem;color:var(--text-muted);">
+        {% if stype == 'file' %}📄 File{% elif stype == 'folder' %}📁 Folder{% elif stype == 'multimedia' %}🖼 Multimedia{% elif stype == 'movie' %}🎬 Movie{% elif stype == 'text' %}✏️ Text{% else %}📝 {{ stype }}{% endif %}
       </span>
-      <strong style="color:var(--cyan);">{{ count }}</strong>
+      <strong style="color:var(--accent);">{{ count }}</strong>
     </div>
     {% empty %}
-    <p class="text-dim" style="font-size:0.82rem;">No shares yet.</p>
+    <p class="text-dim" style="font-size:0.78rem;">No shares yet.</p>
     {% endfor %}
 
-    <div style="margin-top:1rem;">
+    <div style="margin-top:0.75rem;">
       <a href="{% url 'admin_panel:admin_share' %}" class="btn btn-primary btn-full btn-sm">
         ⬆ Share a File (Admin)
       </a>
@@ -75,7 +75,7 @@
 </div>
 
 <!-- Recent users + shares -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;" class="responsive-grid-1">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;" class="responsive-grid-1">
 
   <div class="admin-section">
     <div class="admin-section-header">
@@ -97,7 +97,7 @@
               {% if u.is_fully_verified %}<span class="chip-ok">✓</span>
               {% else %}<span class="chip-no">✗</span>{% endif %}
             </td>
-            <td style="font-size:0.78rem;color:var(--text-dim);">{{ u.created_at|date:"M d" }}</td>
+            <td style="font-size:0.72rem;color:var(--text-dim);">{{ u.created_at|date:"M d" }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -119,7 +119,7 @@
           {% for s in recent_shares %}
           <tr>
             <td><strong>{{ s.original_filename|default:"—"|truncatechars:28 }}</strong></td>
-            <td style="font-size:0.75rem;color:var(--text-dim);">{{ s.share_type }}</td>
+            <td style="font-size:0.72rem;color:var(--text-dim);">{{ s.share_type }}</td>
             <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
           </tr>
           {% endfor %}
@@ -139,7 +139,7 @@
 
 {% block extra_js %}
 <script>
-  /* Mini Chart.js-free bar chart using canvas */
+  /* Mini bar chart using canvas — warm palette */
   (function(){
     const labels = {{ chart_labels|safe }};
     const data   = {{ chart_data|safe }};
@@ -158,17 +158,17 @@
       const bw  = barW * 0.8;
       const bh  = ((v / max) * (H - 30)) || 4;
       const y   = H - 20 - bh;
-      // Bar
+      // Bar gradient
       const grad = ctx.createLinearGradient(0, y, 0, H-20);
-      grad.addColorStop(0, "rgba(0,245,255,0.7)");
-      grad.addColorStop(1, "rgba(179,71,255,0.3)");
+      grad.addColorStop(0, "rgba(201,72,59,0.7)");
+      grad.addColorStop(1, "rgba(71,117,101,0.3)");
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.roundRect(x, y, bw, bh, [3,3,0,0]);
       ctx.fill();
       // Label
-      ctx.fillStyle = "rgba(120,130,160,0.8)";
-      ctx.font = "10px 'Space Grotesk',sans-serif";
+      ctx.fillStyle = "#858B84";
+      ctx.font = "10px 'Inter',sans-serif";
       ctx.textAlign = "center";
       ctx.fillText(labels[i].slice(-5), x + bw/2, H - 4);
     });

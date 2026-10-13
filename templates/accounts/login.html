@@ -4,10 +4,10 @@
 <div class="auth-page">
   <div class="auth-card glass-card fade-in">
 
-    <div style="text-align:center;margin-bottom:1.5rem;">
-      <div style="width:52px;height:52px;background:linear-gradient(135deg,var(--violet),var(--pink));
-                  border-radius:16px;display:grid;place-items:center;margin:0 auto 1rem;font-size:1.4rem;">🔐</div>
-      <h1 style="font-size:1.6rem;">Welcome back</h1>
+    <div style="text-align:center;margin-bottom:1rem;">
+      <div style="width:44px;height:44px;background:var(--accent);
+                  border-radius:12px;display:grid;place-items:center;margin:0 auto 0.75rem;font-size:1.2rem;color:#fff;">🔐</div>
+      <h1 style="font-size:1.5rem;">Welcome back</h1>
       <p class="auth-subtitle">Sign in to your AskMyFile account.</p>
     </div>
 
@@ -29,10 +29,10 @@
         <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
         {{ form.password }}
         {% if form.password.errors %}<p class="form-error">{{ form.password.errors.0 }}</p>{% endif %}
-        <div style="text-align:right;margin-top:0.4rem;">
+        <div style="text-align:right;margin-top:0.3rem;">
           <a href="{% url 'accounts:password_reset_request' %}"
-             style="font-size:0.8rem;color:var(--text-dim);"
-             onmouseover="this.style.color='var(--cyan)'"
+             style="font-size:0.75rem;color:var(--text-dim);transition:color 0.2s;"
+             onmouseover="this.style.color='var(--accent)'"
              onmouseout="this.style.color='var(--text-dim)'">
             Forgot Password?
           </a>
@@ -41,8 +41,8 @@
 
       <button type="submit" class="btn btn-primary btn-full btn-lg">Sign In →</button>
 
-      <div class="flex-center mt-2" style="font-size:0.82rem;">
-        <a href="{% url 'accounts:register' %}" style="color:var(--cyan);">Create account</a>
+      <div class="flex-center mt-2" style="font-size:0.78rem;">
+        <a href="{% url 'accounts:register' %}" style="color:var(--accent);">Create account</a>
       </div>
     </form>
 
