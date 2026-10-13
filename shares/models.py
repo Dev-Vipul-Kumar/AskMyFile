@@ -1,7 +1,3 @@
-"""
-shares/models.py
-OTP-based file sharing: no passphrase — the OTP IS the access key.
-"""
 import hashlib
 import secrets
 from datetime import date
@@ -10,10 +6,6 @@ from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
 
-
-# ---------------------------------------------------------------------------
-# Guest identity
-# ---------------------------------------------------------------------------
 
 class GuestQuotaIdentity(models.Model):
     identifier_hash = models.CharField(max_length=64, unique=True, db_index=True)
@@ -43,19 +35,15 @@ class GuestQuotaIdentity(models.Model):
         return obj
 
 
-# ---------------------------------------------------------------------------
-# Quota usage
-# ---------------------------------------------------------------------------
-
 class QuotaUsage(models.Model):
     IDENTITY_USER  = "user"
     IDENTITY_GUEST = "guest"
 
-    identity_type = models.CharField(max_length=10)
-    identity_id   = models.BigIntegerField()
-    date_key      = models.DateField(db_index=True)
+    identity_type     = models.CharField(max_length=10)
+    identity_id       = models.BigIntegerField()
+    date_key          = models.DateField(db_index=True)
     successful_shares = models.PositiveIntegerField(default=0)
-    updated_at    = models.DateTimeField(auto_now=True)
+    updated_at        = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "shares_quotausage"
@@ -94,10 +82,6 @@ class QuotaUsage(models.Model):
         return row.successful_shares
 
 
-# ---------------------------------------------------------------------------
-# Share  (OTP-based — no passphrase stored)
-# ---------------------------------------------------------------------------
-
 class Share(models.Model):
     STATUS_ACTIVE    = "active"
     STATUS_EXPIRED   = "expired"
@@ -110,16 +94,17 @@ class Share(models.Model):
         (STATUS_EXHAUSTED, "Exhausted"),
     ]
 
-    # Share type (what kind of content is being shared)
     TYPE_FILE       = "file"
     TYPE_FOLDER     = "folder"
     TYPE_MULTIMEDIA = "multimedia"
     TYPE_MOVIE      = "movie"
+    TYPE_TEXT       = "text"
     TYPE_CHOICES    = [
         (TYPE_FILE,       "Document / File"),
         (TYPE_FOLDER,     "Folder / Archive"),
         (TYPE_MULTIMEDIA, "Multimedia (Image / Video)"),
         (TYPE_MOVIE,      "Movie"),
+        (TYPE_TEXT,       "Text"),
     ]
 
     owner_user = models.ForeignKey(
@@ -135,32 +120,21 @@ class Share(models.Model):
         related_name="shares",
     )
 
-    # Public access code — short numeric code displayed to sender
-    # Stored as SHA-256 hash; raw 6-digit OTP returned once to sender
-    access_otp_hash = models.CharField(max_length=64, db_index=True)
-
-    # Internal storage
-    storage_key    = models.CharField(max_length=255, unique=True)
-    ciphertext_size = models.PositiveBigIntegerField(default=0)
-
-    # Crypto envelope params (non-secret — derived from OTP on both sides)
+    access_otp_hash   = models.CharField(max_length=64, db_index=True)
+    storage_key       = models.CharField(max_length=255, unique=True)
+    ciphertext_size   = models.PositiveBigIntegerField(default=0)
     algorithm_version = models.CharField(max_length=20, default="AES-GCM-256-v1")
-    # salt and iv are stored so the recipient can decrypt
-    salt = models.CharField(max_length=64)
-    iv   = models.CharField(max_length=32)
-
-    # Policy
-    expires_at     = models.DateTimeField()
-    max_downloads  = models.PositiveIntegerField(default=0)   # 0 = unlimited
-    download_count = models.PositiveIntegerField(default=0)
-    revoked_at     = models.DateTimeField(null=True, blank=True)
-    status         = models.CharField(max_length=12, choices=STATUS_CHOICES,
-                                      default=STATUS_ACTIVE, db_index=True)
-    created_at     = models.DateTimeField(default=timezone.now)
-
-    # Original filename (stored plaintext for owner display; NOT in encryption envelope)
+    salt              = models.CharField(max_length=64)
+    iv                = models.CharField(max_length=32)
+    expires_at        = models.DateTimeField()
+    max_downloads     = models.PositiveIntegerField(default=0)
+    download_count    = models.PositiveIntegerField(default=0)
+    revoked_at        = models.DateTimeField(null=True, blank=True)
+    status            = models.CharField(max_length=12, choices=STATUS_CHOICES,
+                                         default=STATUS_ACTIVE, db_index=True)
+    created_at        = models.DateTimeField(default=timezone.now)
     original_filename = models.CharField(max_length=512, blank=True)
-    share_type = models.CharField(max_length=12, choices=TYPE_CHOICES, default=TYPE_FILE)
+    share_type        = models.CharField(max_length=12, choices=TYPE_CHOICES, default=TYPE_FILE)
 
     class Meta:
         db_table = "shares_share"
@@ -173,15 +147,12 @@ class Share(models.Model):
         owner = self.owner_user or self.guest_identity
         return f"Share #{self.pk} by {owner} ({self.status})"
 
-    # ------ helpers ------
-
     @staticmethod
     def hash_otp(raw_otp: str) -> str:
         return hashlib.sha256(raw_otp.encode()).hexdigest()
 
     @staticmethod
     def generate_otp() -> str:
-        """6-digit cryptographically random OTP."""
         return "".join([str(secrets.randbelow(10)) for _ in range(6)])
 
     @staticmethod
@@ -199,10 +170,8 @@ class Share(models.Model):
         )
 
     def check_otp(self, raw_otp: str) -> bool:
-        """Constant-time OTP comparison."""
         import hmac as _hmac
-        expected = self.hash_otp(raw_otp)
-        return _hmac.compare_digest(self.access_otp_hash, expected)
+        return _hmac.compare_digest(self.access_otp_hash, self.hash_otp(raw_otp))
 
     def increment_download(self) -> bool:
         with transaction.atomic():
@@ -223,26 +192,19 @@ class Share(models.Model):
         self.save(update_fields=["revoked_at", "status"])
 
 
-# ---------------------------------------------------------------------------
-# OTP delivery record  (registered users: email / SMS)
-# ---------------------------------------------------------------------------
-
 class ShareOTPDelivery(models.Model):
     CHANNEL_EMAIL  = "email"
     CHANNEL_SMS    = "sms"
-    CHANNEL_SCREEN = "screen"   # new/guest users — shown on screen only
+    CHANNEL_SCREEN = "screen"
     CHANNEL_CHOICES = [
         (CHANNEL_EMAIL,  "Email"),
         (CHANNEL_SMS,    "SMS"),
         (CHANNEL_SCREEN, "Screen"),
     ]
 
-    share    = models.OneToOneField(Share, on_delete=models.CASCADE,
-                                    related_name="otp_delivery")
-    channel  = models.CharField(max_length=10, choices=CHANNEL_CHOICES,
-                                 default=CHANNEL_SCREEN)
-    sent_at  = models.DateTimeField(null=True, blank=True)
-    # We never store the raw OTP here — it lives only in Share.access_otp_hash
+    share   = models.OneToOneField(Share, on_delete=models.CASCADE, related_name="otp_delivery")
+    channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES, default=CHANNEL_SCREEN)
+    sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "shares_sharotpdelivery"

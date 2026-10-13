@@ -119,20 +119,29 @@
           <div class="form-group" style="margin-bottom:0.75rem;">
             <label class="form-label">What are you sharing?</label>
             <div class="channel-pills" role="group" id="shareTypeGroup" aria-label="Share type">
-              <button type="button" class="channel-pill active" data-sharetype="file"        aria-pressed="true">📄 Document</button>
-              <button type="button" class="channel-pill"        data-sharetype="folder"      aria-pressed="false">📁 Folder</button>
-              <button type="button" class="channel-pill"        data-sharetype="multimedia"  aria-pressed="false">🖼 Multimedia</button>
-              <button type="button" class="channel-pill"        data-sharetype="movie"       aria-pressed="false" style="color:var(--orange);border-color:rgba(245,158,11,0.35);">🎬 Movie</button>
+              <button type="button" class="channel-pill active" data-sharetype="file"       aria-pressed="true">📄 Document</button>
+              <button type="button" class="channel-pill"        data-sharetype="folder"     aria-pressed="false">📁 Folder</button>
+              <button type="button" class="channel-pill"        data-sharetype="multimedia" aria-pressed="false">🖼 Multimedia</button>
+              <button type="button" class="channel-pill"        data-sharetype="movie"      aria-pressed="false" style="color:var(--orange);border-color:rgba(245,158,11,0.35);">🎬 Movie</button>
+              <button type="button" class="channel-pill"        data-sharetype="text"       aria-pressed="false">✏️ Text</button>
             </div>
             <p class="form-hint" id="shareTypeHint" style="min-height:1.1rem;"></p>
           </div>
 
-          <!-- Drop zone -->
+          <!-- Drop zone (hidden for text type by JS) -->
           <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Select a file to share">
             <input type="file" id="fileInput" aria-label="Select file" />
             <span class="drop-icon" id="dropIcon">📄</span>
             <p class="drop-zone-title" id="dropTitle">Drop a document or click to browse</p>
             <p class="drop-zone-sub"   id="dropSub">Max {{ max_file_size_mb }} MB · PDF, Word, Excel, PPT… · Encrypted before upload</p>
+          </div>
+
+          <!-- Text input area (shown only for text type) -->
+          <div id="textInputWrap" style="display:none;margin-top:0.5rem;">
+            <textarea id="textInput" class="form-input"
+                      rows="6" placeholder="Type your message here… it will be encrypted before sending."
+                      style="resize:vertical;min-height:140px;"
+                      aria-label="Text message to share"></textarea>
           </div>
 
           <!-- Selected file pill -->
@@ -182,36 +191,43 @@
         <!-- ── Success / OTP result ── -->
         <div id="resultArea" class="hidden">
 
-          <div class="otp-reveal">
+          <!-- Shown ONLY for guests (non-registered users) -->
+          <div id="otpReveal" class="otp-reveal">
             <div class="scan-line"></div>
             <p class="otp-label">Access Code</p>
             <div class="otp-code" id="otpCode" aria-label="Access code" aria-live="assertive">——————</div>
             <p id="channelMsg" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;"></p>
-            <div class="otp-timer" aria-label="Code validity">
+            <div class="otp-timer">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
               Share this code with your recipient privately
             </div>
-            <div class="otp-timer-bar" aria-hidden="true"><div class="otp-timer-fill" id="otpTimerFill"></div></div>
+          </div>
+
+          <!-- Shown ONLY for registered users (OTP sent by email) -->
+          <div id="emailSentMsg" style="display:none;" class="otp-reveal">
+            <div style="text-align:center;">
+              <div style="font-size:2.5rem;margin-bottom:0.75rem;">📧</div>
+              <p style="font-weight:700;color:var(--accent);font-size:1.1rem;margin-bottom:0.4rem;">Access code sent to your email</p>
+              <p style="font-size:0.85rem;color:var(--text-muted);">Check your inbox for the 6-digit code and share it with your recipient.</p>
+            </div>
           </div>
 
           <div class="alert alert-success" style="margin-top:1.25rem;">
-            ✅ File encrypted and uploaded. Give the 6-digit code to your recipient.
+            ✅ Encrypted and uploaded successfully.
           </div>
 
           <div class="glass-card" style="padding:1rem;margin-top:0.75rem;background:rgba(0,0,0,0.2);">
             <p style="font-size:0.8rem;color:var(--text-muted);">
-              📌 <strong style="color:var(--text);">Recipient goes to:</strong>
-              <a href="{% url 'shares:access' %}" style="color:var(--cyan);">{{ request.get_host }}/shares/access/</a>
-              and enters this code.
+              📌 <strong style="color:var(--text);">Recipient opens:</strong>
+              <a href="{% url 'shares:access' %}" style="color:var(--accent);">{{ request.get_host }}/shares/access/</a>
             </p>
           </div>
 
-          <button type="button" id="shareAnotherBtn"
-                  class="btn btn-ghost btn-full" style="margin-top:1rem;">
-            ↩ Share another file
+          <button type="button" id="shareAnotherBtn" class="btn btn-ghost btn-full" style="margin-top:1rem;">
+            ↩ Share another
           </button>
 
-        </div><!-- #resultArea -->
+        </div>
 
       </div><!-- .glass-card -->
     </div>

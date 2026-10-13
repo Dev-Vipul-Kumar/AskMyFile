@@ -1,8 +1,3 @@
-"""
-shares/services.py
-OTP-based share creation.  The 6-digit OTP is the encryption key derivation
-input — no separate passphrase is needed.
-"""
 import logging
 
 from django.conf import settings
@@ -19,16 +14,11 @@ logger = logging.getLogger(__name__)
 _private_storage = FileSystemStorage(location=str(settings.MEDIA_ROOT))
 
 
-# ---------------------------------------------------------------------------
-# Quota helpers
-# ---------------------------------------------------------------------------
-
 def get_daily_limit(user=None) -> int:
-    """Admin has no daily limit (returns a very large number)."""
     if user is None or not user.is_authenticated:
         return settings.GUEST_SHARES_PER_DAY
     if getattr(user, "is_staff", False):
-        return 999999   # effectively unlimited
+        return 999999
     try:
         sub = user.subscriptions.filter(status="active").select_related("plan").latest("period_start")
         return sub.plan.daily_share_limit
@@ -49,41 +39,27 @@ def get_quota_remaining(user=None, guest_identity=None) -> int:
     return max(0, limit - used)
 
 
-# ---------------------------------------------------------------------------
-# OTP delivery
-# ---------------------------------------------------------------------------
-
 def deliver_otp(share: Share, raw_otp: str, channel: str, user=None) -> None:
-    """Send/show the OTP via the chosen channel."""
     if channel == ShareOTPDelivery.CHANNEL_EMAIL and user and user.email:
         try:
             send_mail(
                 subject="Your AskMyFile access code",
                 message=(
                     f"Hello,\n\n"
-                    f"Your 6-digit code to access the shared file is:\n\n"
+                    f"Your 6-digit code to access the shared content is:\n\n"
                     f"    {raw_otp}\n\n"
-                    f"This code expires when the share link is opened and used.\n"
-                    f"Do not share this code with anyone other than the intended recipient.\n\n"
+                    f"Enter this code at: {settings.SITE_URL}/shares/access/\n\n"
                     f"— AskMyFile"
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[user.email],
-                fail_silently=True,   # never crash the request if email fails
+                fail_silently=True,
             )
         except Exception as exc:
             logger.error("OTP email FAILED for share #%s to %s: %s", share.pk, user.email, exc)
-
     elif channel == ShareOTPDelivery.CHANNEL_SMS:
-        # SMS provider not configured — log only
-        logger.info("[DEV] SMS OTP for share #%s: %s", share.pk, raw_otp)
+        logger.info("[SMS] OTP for share #%s: %s", share.pk, raw_otp)
 
-    # CHANNEL_SCREEN: OTP is returned in the API response — no delivery needed here
-
-
-# ---------------------------------------------------------------------------
-# Atomic share creation
-# ---------------------------------------------------------------------------
 
 def create_share(
     *,
@@ -94,18 +70,10 @@ def create_share(
     share_type: str = "file",
     algorithm_version: str = "AES-GCM-256-v1",
     otp_channel: str = ShareOTPDelivery.CHANNEL_SCREEN,
-    otp_hash: str,          # sha256(raw_otp) computed by browser — stored directly
+    otp_hash: str,
     user=None,
     guest_identity: GuestQuotaIdentity | None = None,
 ) -> dict:
-    """
-    Atomically: check quota → store encrypted bytes → create Share → deliver OTP.
-
-    Returns:
-        ok=True  → { share, raw_otp, channel, quota_remaining }
-        ok=False → { error }
-    """
-    # Determine identity
     if user and user.is_authenticated:
         identity_type = QuotaUsage.IDENTITY_USER
         identity_id   = user.pk
@@ -115,24 +83,17 @@ def create_share(
     else:
         return {"ok": False, "error": "no_identity"}
 
-    # Registered users can choose email/SMS; guests are screen-only
     if not (user and user.is_authenticated):
         otp_channel = ShareOTPDelivery.CHANNEL_SCREEN
 
-    # Expiry
     if user and user.is_authenticated:
         expiry_delta = timezone.timedelta(hours=settings.ACCOUNT_LINK_EXPIRY_HOURS)
     else:
-        guest_minutes = getattr(settings, "GUEST_LINK_EXPIRY_MINUTES", 1)
+        guest_minutes = getattr(settings, "GUEST_LINK_EXPIRY_MINUTES", 1440)
         expiry_delta  = timezone.timedelta(minutes=guest_minutes)
 
-    # Use the browser-provided hash directly — no need to generate or hash again
-    # The raw OTP never reaches the server; only its sha256 hash does
-    raw_otp     = None    # we don't have the raw OTP — browser kept it
     storage_key = Share.generate_storage_key()
-
-    # Admin users: skip quota entirely
-    is_admin = user and user.is_authenticated and getattr(user, "is_staff", False)
+    is_admin    = user and user.is_authenticated and getattr(user, "is_staff", False)
 
     with transaction.atomic():
         if not is_admin:
@@ -146,13 +107,12 @@ def create_share(
             if usage.successful_shares >= limit:
                 return {"ok": False, "error": "quota_exceeded"}
 
-        # Persist encrypted bytes
         _private_storage.save(storage_key, ContentFile(file_bytes))
 
         share = Share.objects.create(
             owner_user        = user if (user and user.is_authenticated) else None,
             guest_identity    = guest_identity if not (user and user.is_authenticated) else None,
-            access_otp_hash   = otp_hash,   # browser-computed sha256(OTP)
+            access_otp_hash   = otp_hash,
             storage_key       = storage_key,
             ciphertext_size   = len(file_bytes),
             algorithm_version = algorithm_version,
@@ -173,33 +133,25 @@ def create_share(
             usage.successful_shares += 1
             usage.save(update_fields=["successful_shares", "updated_at"])
 
-    # Update deliver_otp call — raw_otp is not available here anymore
-    # For email delivery, the browser calls /shares/send-otp-email/ separately
-    # For screen channel, OTP is already in the browser — nothing to do server-side
     if otp_channel == ShareOTPDelivery.CHANNEL_SMS:
-        logger.info("[DEV] SMS OTP for share #%s (hash: %s...)", share.pk, otp_hash[:8])
+        logger.info("[SMS] OTP for share #%s (hash: %s...)", share.pk, otp_hash[:8])
 
     remaining = get_quota_remaining(user=user, guest_identity=guest_identity)
     return {
         "ok":              True,
         "share":           share,
-        "raw_otp":         None,  # server never had raw OTP — browser kept it
+        "raw_otp":         None,
         "channel":         otp_channel,
         "quota_remaining": remaining,
     }
 
 
-# ---------------------------------------------------------------------------
-# Storage helpers
-# ---------------------------------------------------------------------------
-
 def get_file_bytes(share: Share) -> bytes | None:
-    """Read file bytes from private storage in chunks to avoid OOM on large files."""
     try:
         chunks = []
         with _private_storage.open(share.storage_key, "rb") as f:
             while True:
-                chunk = f.read(4 * 1024 * 1024)   # read 4 MB at a time
+                chunk = f.read(4 * 1024 * 1024)
                 if not chunk:
                     break
                 chunks.append(chunk)
@@ -207,10 +159,6 @@ def get_file_bytes(share: Share) -> bytes | None:
     except Exception:
         return None
 
-
-# ---------------------------------------------------------------------------
-# Cleanup
-# ---------------------------------------------------------------------------
 
 def cleanup_expired_shares(dry_run: bool = False) -> dict:
     now = timezone.now()
