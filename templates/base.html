@@ -11,7 +11,7 @@
     /* ── Toast notifications ── */
     #toast-container {
       position: fixed;
-      top: 76px;          /* just below the sticky navbar */
+      top: 76px;
       right: 1.25rem;
       z-index: 9999;
       display: flex;
@@ -30,16 +30,15 @@
       font-size: 0.875rem;
       font-family: var(--font);
       border: 1px solid transparent;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
       pointer-events: all;
-      /* enter animation */
-      animation: toast-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
-      /* exit animation class added by JS */
+      animation: toast-in 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
       transition: opacity 0.4s ease, transform 0.4s ease, max-height 0.4s ease,
                   padding 0.4s ease, margin 0.4s ease;
       overflow: hidden;
+      background: var(--surface);
     }
     @keyframes toast-in {
       from { opacity: 0; transform: translateX(60px) scale(0.9); }
@@ -243,13 +242,37 @@
   /* ── Scroll-reveal ── */
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); }
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) {
+          const delay = parseInt(e.target.dataset.delay || 0);
+          setTimeout(() => e.target.classList.add('in-view'), delay * 80);
+          io.unobserve(e.target);
+        }
       });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('[data-animate]').forEach(el => io.observe(el));
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+    document.querySelectorAll('[data-animate]').forEach((el, i) => {
+      el.dataset.delay = i % 6;  // max 6 stagger levels
+      io.observe(el);
+    });
   } else {
     document.querySelectorAll('[data-animate]').forEach(el => el.classList.add('in-view'));
+  }
+
+  /* ── Navbar scroll shadow ── */
+  const _nav = document.querySelector('.navbar');
+  if (_nav) {
+    window.addEventListener('scroll', () => {
+      _nav.classList.toggle('scrolled', window.scrollY > 10);
+    }, { passive: true });
+  }
+
+  /* ── Close mobile nav on outside click ── */
+  const _t2 = document.getElementById('navToggle');
+  const _l2 = document.getElementById('navLinks');
+  if (_t2 && _l2 && _nav) {
+    document.addEventListener('click', (e) => {
+      if (!_nav.contains(e.target)) _l2.classList.remove('open');
+    });
   }
 </script>
 <script src="{% static 'js/particles.js' %}"></script>
