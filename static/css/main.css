@@ -855,9 +855,8 @@ footer a:hover { color: var(--accent); }
 .gap-2 { gap: 1rem; }
 .w-full { width: 100%; }
 
-/* Legacy alias */
+/* Legacy aliases kept for template compatibility */
 .surface { background: var(--surface); }
---surface2: #1e241d;
 .badge-accent {
   background: var(--accent-dim); color: var(--accent);
   border: 1px solid rgba(198,241,53,0.28); border-radius: 999px;

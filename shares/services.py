@@ -94,6 +94,7 @@ def create_share(
     share_type: str = "file",
     algorithm_version: str = "AES-GCM-256-v1",
     otp_channel: str = ShareOTPDelivery.CHANNEL_SCREEN,
+    server_otp: str | None = None,   # OTP pre-generated and given to browser for encryption
     user=None,
     guest_identity: GuestQuotaIdentity | None = None,
 ) -> dict:
@@ -125,8 +126,8 @@ def create_share(
         guest_minutes = getattr(settings, "GUEST_LINK_EXPIRY_MINUTES", 1)
         expiry_delta  = timezone.timedelta(minutes=guest_minutes)
 
-    # Generate OTP and storage key
-    raw_otp     = Share.generate_otp()
+    # Use the server OTP (pre-given to browser for encryption), or generate a new one
+    raw_otp     = server_otp if server_otp else Share.generate_otp()
     otp_hash    = Share.hash_otp(raw_otp)
     storage_key = Share.generate_storage_key()
 

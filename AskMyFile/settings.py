@@ -197,7 +197,7 @@ PLUS_SHARES_PER_DAY    = int(os.environ.get("PLUS_SHARES_PER_DAY",    "200"))
 PRO_SHARES_PER_DAY     = int(os.environ.get("PRO_SHARES_PER_DAY",     "500"))
 
 GUEST_LINK_EXPIRY_HOURS   = 0
-GUEST_LINK_EXPIRY_MINUTES = int(os.environ.get("GUEST_LINK_EXPIRY_MINUTES", "1"))
+GUEST_LINK_EXPIRY_MINUTES = int(os.environ.get("GUEST_LINK_EXPIRY_MINUTES", "1440"))  # 24 hours
 ACCOUNT_LINK_EXPIRY_HOURS = int(os.environ.get("ACCOUNT_LINK_EXPIRY_HOURS", str(7 * 24)))
 DEFAULT_MAX_DOWNLOADS     = int(os.environ.get("DEFAULT_MAX_DOWNLOADS",     "5"))
 

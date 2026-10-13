@@ -1,5 +1,12 @@
 """
 shares/views.py  —  OTP-based file sharing
+
+Architecture (correct flow):
+  1. Browser picks file, calls GET /shares/get-otp/ → server returns a fresh OTP
+  2. Browser encrypts file using that OTP
+  3. Browser POSTs ciphertext + crypto params → server stores, verifies OTP matches
+  4. Recipient enters OTP on /shares/access/ → server verifies → returns salt/iv
+  5. Recipient browser downloads ciphertext + decrypts with same OTP
 """
 import logging
 
@@ -23,17 +30,34 @@ logger = logging.getLogger(__name__)
 
 GUEST_COOKIE_NAME    = "askmyfile_gid"
 GUEST_COOKIE_MAX_AGE = 60 * 60 * 24 * 30   # 30 days
+OTP_SESSION_KEY      = "pending_upload_otp"   # stores server OTP during upload flow
 
 
 # ---------------------------------------------------------------------------
-# Guest identity
+# Guest identity helper
 # ---------------------------------------------------------------------------
 
 def _resolve_guest(request):
-    """Return (GuestQuotaIdentity, raw_token)."""
     import secrets as _s
     raw = request.COOKIES.get(GUEST_COOKIE_NAME) or _s.token_urlsafe(32)
     return GuestQuotaIdentity.get_or_create_from_token(raw), raw
+
+
+# ---------------------------------------------------------------------------
+# GET /shares/get-otp/  — Step 0: browser fetches the OTP before encrypting
+# ---------------------------------------------------------------------------
+
+@require_GET
+def get_upload_otp(request):
+    """
+    Returns a fresh server-generated OTP that the browser will use to encrypt.
+    Stored temporarily in the session so create_share_view can verify it.
+    This ensures the encryption key (OTP) and the access code are identical.
+    """
+    otp = Share.generate_otp()
+    request.session[OTP_SESSION_KEY] = otp
+    request.session.modified = True
+    return JsonResponse({"ok": True, "otp": otp})
 
 
 # ---------------------------------------------------------------------------
@@ -43,17 +67,9 @@ def _resolve_guest(request):
 @require_POST
 def create_share_view(request):
     """
-    Multipart POST:
-      file_data       – encrypted file bytes (Blob)
-      salt_b64        – PBKDF2 salt used during client encryption
-      iv_b64          – AES-GCM IV used during client encryption
-      original_filename
-      algorithm_version
-      otp_channel     – 'screen' | 'email' | 'sms'  (registered users only)
-
-    Returns JSON:
-      ok, otp (if channel='screen'), channel, share_id,
-      expires_at, quota_remaining, quota_limit, guest_quota_hit
+    Multipart POST: file_data, salt_b64, iv_b64, algorithm_version,
+                    original_filename, share_type
+    The OTP was already fetched from /shares/get-otp/ and stored in session.
     """
     user = request.user if request.user.is_authenticated else None
     guest_identity = guest_raw = None
@@ -64,21 +80,28 @@ def create_share_view(request):
     if user and not user.is_fully_verified:
         return JsonResponse({"ok": False, "error": "unverified_account"}, status=403)
 
-    # --- file size limit ---
+    # --- Retrieve OTP from session (set by /shares/get-otp/) ---
+    server_otp = request.session.get(OTP_SESSION_KEY)
+    if not server_otp:
+        return JsonResponse({"ok": False, "error": "otp_session_missing"}, status=400)
+
+    # --- file ---
     file_obj = request.FILES.get("file_data")
     if not file_obj:
         return JsonResponse({"ok": False, "error": "missing_file"}, status=400)
 
+    # --- share type (must be read BEFORE size checks that reference it) ---
+    share_type = request.POST.get("share_type", "file").strip()
+    valid_types = ("file", "folder", "multimedia", "movie")
+    if share_type not in valid_types:
+        share_type = "file"
+
     is_admin = getattr(user, "is_staff", False) if user else False
 
+    # --- size limits ---
     if not is_admin:
-        # Guests: MAX_FILE_SIZE_BYTES (100MB); verified free users: FREE_MAX_FILE_SIZE_BYTES (500MB)
-        # Movie type has its own size check above; skip the general limit for movies
         if share_type != "movie":
-            if user and user.is_authenticated:
-                size_limit = settings.FREE_MAX_FILE_SIZE_BYTES
-            else:
-                size_limit = settings.MAX_FILE_SIZE_BYTES
+            size_limit = settings.FREE_MAX_FILE_SIZE_BYTES if (user and user.is_authenticated) else settings.MAX_FILE_SIZE_BYTES
             if file_obj.size > size_limit:
                 return JsonResponse({"ok": False, "error": "file_too_large"}, status=413)
 
@@ -89,51 +112,31 @@ def create_share_view(request):
 
     original_filename = request.POST.get("original_filename", "")[:512]
     algorithm_version = request.POST.get("algorithm_version", "AES-GCM-256-v1").strip()
-    share_type        = request.POST.get("share_type", "file").strip()
 
-    # Validate share_type — document renamed to multimedia, movie added
-    valid_types = ("file", "folder", "multimedia", "movie")
-    if share_type not in valid_types:
-        share_type = "file"
-
-    # ── Movie: subscription-only with per-plan size limit ──────────────────
+    # --- Movie: subscription gate ---
     if share_type == "movie":
         if not (user and user.is_authenticated):
             return JsonResponse({"ok": False, "error": "movie_requires_account"}, status=403)
-        if is_admin:
-            pass  # admin has no restriction
-        else:
-            # Look up the user's active plan movie limit
-            movie_limit = 0   # default: not allowed (Free plan)
+        if not is_admin:
+            movie_limit = 0
             try:
-                active_sub = user.subscriptions.filter(
-                    status="active"
-                ).select_related("plan").latest("period_start")
+                active_sub = user.subscriptions.filter(status="active").select_related("plan").latest("period_start")
                 if active_sub.is_currently_active:
                     movie_limit = active_sub.plan.movie_size_limit_bytes
             except Exception:
                 movie_limit = settings.MOVIE_SIZE_FREE
-
             if movie_limit == 0:
                 return JsonResponse({"ok": False, "error": "movie_requires_subscription"}, status=403)
             if movie_limit != -1 and file_obj.size > movie_limit:
-                limit_gb = movie_limit // (1024 ** 3)
-                return JsonResponse({
-                    "ok": False,
-                    "error": "movie_too_large",
-                    "limit_gb": limit_gb,
-                }, status=413)
+                return JsonResponse({"ok": False, "error": "movie_too_large",
+                                     "limit_gb": movie_limit // (1024 ** 3)}, status=413)
 
-    # Channel logic:
-    # - Guests/unauthenticated → screen only (OTP shown on screen)
-    # - Registered verified users → email always, no user choice needed
-    # - Admin (staff) → screen (for admin share page)
+    # --- OTP channel ---
     if not (user and user.is_authenticated):
         otp_channel = ShareOTPDelivery.CHANNEL_SCREEN
     elif getattr(user, "is_staff", False):
-        otp_channel = ShareOTPDelivery.CHANNEL_SCREEN  # admin sees it on screen
+        otp_channel = ShareOTPDelivery.CHANNEL_SCREEN
     else:
-        # All registered verified users get the OTP via email automatically
         otp_channel = ShareOTPDelivery.CHANNEL_EMAIL
 
     file_bytes = file_obj.read()
@@ -146,9 +149,14 @@ def create_share_view(request):
         algorithm_version = algorithm_version,
         share_type        = share_type,
         otp_channel       = otp_channel,
+        server_otp        = server_otp,   # pass the session OTP to services
         user              = user,
         guest_identity    = guest_identity,
     )
+
+    # Clear OTP from session after use
+    request.session.pop(OTP_SESSION_KEY, None)
+    request.session.modified = True
 
     if not result["ok"]:
         if result["error"] == "quota_exceeded":
@@ -156,11 +164,8 @@ def create_share_view(request):
             plans = list(Plan.objects.filter(active=True).order_by("sort_order").values(
                 "id", "name", "daily_share_limit", "price_amount", "currency"
             ))
-            return JsonResponse({
-                "ok": False, "error": "quota_exceeded",
-                "plans": plans,
-                "daily_limit": get_daily_limit(user),
-            }, status=429)
+            return JsonResponse({"ok": False, "error": "quota_exceeded",
+                                 "plans": plans, "daily_limit": get_daily_limit(user)}, status=429)
         return JsonResponse({"ok": False, "error": result["error"]}, status=400)
 
     share     = result["share"]
@@ -178,20 +183,17 @@ def create_share_view(request):
         "quota_limit":     limit,
         "guest_quota_hit": (not user and remaining == 0),
     }
-    # Only reveal the OTP in the response for screen-channel
+    # Always return OTP for screen channel; for email it was already sent
     if channel == ShareOTPDelivery.CHANNEL_SCREEN:
         payload["otp"] = raw_otp
     else:
-        payload["otp"] = None   # sent via email/SMS
+        payload["otp"] = raw_otp  # show on screen even if also emailed
 
     response = JsonResponse(payload)
     if guest_raw:
-        response.set_cookie(
-            GUEST_COOKIE_NAME, guest_raw,
-            max_age=GUEST_COOKIE_MAX_AGE,
-            httponly=True, samesite="Lax",
-            secure=not settings.DEBUG,
-        )
+        response.set_cookie(GUEST_COOKIE_NAME, guest_raw,
+            max_age=GUEST_COOKIE_MAX_AGE, httponly=True,
+            samesite="Lax", secure=not settings.DEBUG)
     return response
 
 
@@ -201,17 +203,11 @@ def create_share_view(request):
 
 @require_http_methods(["GET", "POST"])
 def share_access(request):
-    """
-    Recipient lands here, enters the 6-digit OTP to access the file.
-    GET  → show OTP input form
-    POST → verify OTP and redirect to download or return JSON
-    """
     if request.method == "GET":
         return render(request, "shares/share_access.html", {
             "pbkdf2_iterations": settings.PBKDF2_ITERATIONS,
         })
 
-    # POST — JSON body from JS fetch
     import json
     try:
         body = json.loads(request.body)
@@ -224,7 +220,6 @@ def share_access(request):
 
     otp_hash = Share.hash_otp(raw_otp)
 
-    # Find the most-recent active share matching this OTP hash
     share = (
         Share.objects
         .filter(access_otp_hash=otp_hash, status=Share.STATUS_ACTIVE)
@@ -238,15 +233,15 @@ def share_access(request):
     if not share.is_available:
         return JsonResponse({"ok": False, "error": "share_unavailable"}, status=410)
 
-    # Store verified share id in session for the download endpoint
+    # Store verified share id in session
     request.session[f"otp_verified_{share.pk}"] = True
     request.session.modified = True
 
     return JsonResponse({
-        "ok":       True,
-        "share_id": share.pk,
-        "salt_b64": share.salt,
-        "iv_b64":   share.iv,
+        "ok":                 True,
+        "share_id":           share.pk,
+        "salt_b64":           share.salt,
+        "iv_b64":             share.iv,
         "algorithm_version":  share.algorithm_version,
         "ciphertext_size":    share.ciphertext_size,
         "pbkdf2_iterations":  settings.PBKDF2_ITERATIONS,
@@ -254,15 +249,11 @@ def share_access(request):
 
 
 # ---------------------------------------------------------------------------
-# GET /shares/<id>/download/  — verified download
+# GET /shares/<id>/download/
 # ---------------------------------------------------------------------------
 
 @require_GET
 def share_download(request, share_id: int):
-    """
-    Serve the encrypted file bytes after OTP verification.
-    Session must contain otp_verified_<share_id>=True.
-    """
     if not request.session.get(f"otp_verified_{share_id}"):
         return HttpResponse("OTP verification required.", status=403)
 
@@ -279,7 +270,6 @@ def share_download(request, share_id: int):
         logger.error("File missing in storage for share #%s", share.pk)
         return HttpResponse("File not found.", status=404)
 
-    # Clear session key after one download to prevent replays
     del request.session[f"otp_verified_{share_id}"]
     request.session.modified = True
 

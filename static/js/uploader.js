@@ -204,13 +204,28 @@
       createBtn.disabled = true;
 
       try {
-        /* Step 1: generate ephemeral OTP */
-        const otp = Array.from(crypto.getRandomValues(new Uint8Array(6)))
-          .map(b => b % 10).join("");
+        /* Step 1: Fetch OTP from server (server stores it, browser uses it to encrypt) */
+        setProgress("Preparing secure upload…");
+        let otpRes;
+        try {
+          otpRes = await fetch("/shares/get-otp/", {
+            method: "GET",
+            headers: { "X-CSRFToken": csrf() },
+          });
+        } catch {
+          hideProgress(); showErr("Network error — check your connection.");
+          createBtn.disabled = false; return;
+        }
+        const otpData = await otpRes.json().catch(() => null);
+        if (!otpData || !otpData.ok) {
+          hideProgress(); showErr("Could not generate access code. Please try again.");
+          createBtn.disabled = false; return;
+        }
+        const otp = otpData.otp;  // this is the server-generated OTP
 
         const shareType = selectedType;
 
-        /* Step 2: encrypt */
+        /* Step 2: Encrypt file using the server OTP */
         setProgress("Encrypting your file…");
         let enc;
         try {
@@ -220,7 +235,7 @@
           createBtn.disabled = false; return;
         }
 
-        /* Step 3: upload */
+        /* Step 3: Upload ciphertext */
         setProgress("Uploading encrypted file…");
         const form = new FormData();
         form.append("file_data",         new Blob([enc.ciphertext], { type: "application/octet-stream" }), "payload.bin");
@@ -228,7 +243,6 @@
         form.append("iv_b64",            enc.ivB64);
         form.append("algorithm_version", enc.algorithmVersion);
         form.append("original_filename", selectedFile.name);
-        form.append("otp_channel",       selectedChannel);
         form.append("share_type",        shareType);
 
         let res;
@@ -258,6 +272,7 @@
             missing_file:               "No file received by server.",
             missing_crypto_params:      "Encryption params missing — please try again.",
             unverified_account:         "Please complete account verification first.",
+            otp_session_missing:        "Session expired — please refresh and try again.",
             movie_requires_account:     "You must be signed in to share movies.",
             movie_requires_subscription:"🎬 Movie sharing requires a paid subscription (Starter, Plus, or Pro).",
             movie_too_large:            `🎬 Movie exceeds your plan's limit (${data.limit_gb || "?"}GB). Upgrade to a higher plan.`,
@@ -266,7 +281,7 @@
           createBtn.disabled = false; return;
         }
 
-        /* Step 4: show result */
+        /* Step 4: Show result — use the OTP returned from server */
         const shownOtp = data.otp || otp;
 
         if (uploadArea)  uploadArea.classList.add("hidden");
@@ -277,7 +292,7 @@
           const chMap = {
             email:  "📧 The access code was also sent to your registered email.",
             sms:    "📱 The access code was also sent to your registered phone.",
-            screen: "👆 Share this code with your recipient privately.",
+            screen: "👆 Share this 6-digit code with your recipient privately.",
           };
           channelMsgEl.textContent = chMap[data.channel] || "";
         }
