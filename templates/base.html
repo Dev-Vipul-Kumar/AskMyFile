@@ -103,6 +103,16 @@
 </head>
 <body>
 
+<!-- ═══ Global Fullscreen Loader Overlay ═══ -->
+<div id="globalLoaderOverlay" aria-hidden="true" role="status">
+  <svg class="loader-svg" viewBox="0 0 240 240">
+    <circle class="loader-svg__ring loader-svg__ring--a" cx="120" cy="120" r="105" fill="none" stroke-width="20" stroke-dasharray="0 660" stroke-dashoffset="-330" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--b" cx="120" cy="120" r="35" fill="none" stroke-width="20" stroke-dasharray="0 220" stroke-dashoffset="-110" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--c" cx="120" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-dashoffset="-220" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--d" cx="120" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-dashoffset="-220" stroke-linecap="round"></circle>
+  </svg>
+</div>
+
 <canvas id="particles-canvas" aria-hidden="true"></canvas>
 
 <div class="page-wrapper">
@@ -269,6 +279,42 @@
     });
   }
 </script>
+
+<script>
+  /* ── Global Loader API ── */
+  (function () {
+    const overlay  = document.getElementById('globalLoaderOverlay');
+
+    window.AskMyLoader = {
+      show: function () {
+        if (!overlay) return;
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      },
+      hide: function () {
+        if (!overlay) return;
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+    };
+
+    /* Auto-show loader on form submissions (login, register, payment, etc.)
+       Excludes logout forms, search inputs, and forms with data-no-loader. */
+    document.addEventListener('submit', function (e) {
+      const form = e.target;
+      if (!form || form.hasAttribute('data-no-loader')) return;
+      // Skip tiny inline forms (logout, nav actions)
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn && (btn.classList.contains('btn-sm') || btn.classList.contains('toast-close'))) return;
+      // Skip forms handled by JS (uploader/decryptor have their own loader calls)
+      if (form.closest('#uploadArea') || form.closest('#decryptArea')) return;
+      AskMyLoader.show();
+    });
+  })();
+</script>
+
 <script src="{% static 'js/particles.js' %}"></script>
 {% block extra_js %}{% endblock %}
 </body>

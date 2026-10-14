@@ -136,6 +136,7 @@
 
     try {
       setProgress("Verifying access code…");
+      if (window.AskMyLoader) AskMyLoader.show();
 
       const csrfToken = (typeof CSRF_TOKEN !== "undefined" && CSRF_TOKEN)
         ? CSRF_TOKEN
@@ -149,7 +150,9 @@
           body: JSON.stringify({ otp }),
         });
       } catch {
-        hideProgress(); showErr("Network error — check your connection."); decryptBtn.disabled = false; return;
+        hideProgress(); showErr("Network error — check your connection.");
+        if (window.AskMyLoader) AskMyLoader.hide();
+        decryptBtn.disabled = false; return;
       }
 
       const vdata = await verifyRes.json().catch(() => null);
@@ -161,6 +164,7 @@
           share_unavailable: "This share has expired or is no longer available.",
         };
         showErr(eMap[vdata?.error] || "Invalid code.");
+        if (window.AskMyLoader) AskMyLoader.hide();
         decryptBtn.disabled = false; return;
       }
 
@@ -174,6 +178,7 @@
       if (!dlResult.ok) {
         hideProgress();
         showErr(dlResult.status === 403 ? "Session expired — please re-enter your code." : "Content unavailable.");
+        if (window.AskMyLoader) AskMyLoader.hide();
         decryptBtn.disabled = false; return;
       }
 
@@ -189,10 +194,12 @@
       } catch (err) {
         hideProgress();
         showErr("Decryption failed. The code may be wrong or the content was tampered with.");
+        if (window.AskMyLoader) AskMyLoader.hide();
         decryptBtn.disabled = false; return;
       }
 
       hideProgress();
+      if (window.AskMyLoader) AskMyLoader.hide();
 
       if (share_type === "text") {
         const textContent = new TextDecoder().decode(result.fileBytes);
@@ -220,6 +227,7 @@
 
     } catch (err) {
       hideProgress(); showErr("Unexpected error: " + err.message);
+      if (window.AskMyLoader) AskMyLoader.hide();
       decryptBtn.disabled = false;
     }
   });

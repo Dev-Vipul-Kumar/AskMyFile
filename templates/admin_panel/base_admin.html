@@ -279,6 +279,16 @@
 </head>
 <body>
 
+<!-- ═══ Global Fullscreen Loader Overlay ═══ -->
+<div id="globalLoaderOverlay" aria-hidden="true" role="status">
+  <svg class="loader-svg" viewBox="0 0 240 240">
+    <circle class="loader-svg__ring loader-svg__ring--a" cx="120" cy="120" r="105" fill="none" stroke-width="20" stroke-dasharray="0 660" stroke-dashoffset="-330" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--b" cx="120" cy="120" r="35" fill="none" stroke-width="20" stroke-dasharray="0 220" stroke-dashoffset="-110" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--c" cx="120" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-dashoffset="-220" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--d" cx="120" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-dashoffset="-220" stroke-linecap="round"></circle>
+  </svg>
+</div>
+
 <div class="admin-layout">
 
   <!-- ═══ Sidebar ═══ -->
@@ -305,7 +315,7 @@
       </a>
       <a href="{% url 'admin_panel:admin_share' %}"
          class="sidebar-link {% if request.resolver_match.url_name == 'admin_share' %}active{% endif %}">
-        <span class="icon">⬆</span> Share a File
+        <span class="icon">🔄</span> Share & Receive
         <span class="sidebar-badge">∞</span>
       </a>
 
@@ -398,6 +408,38 @@
     });
   }
 </script>
+
+<script>
+  /* ── Global Loader API ── */
+  (function () {
+    const overlay  = document.getElementById('globalLoaderOverlay');
+
+    window.AskMyLoader = {
+      show: function () {
+        if (!overlay) return;
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      },
+      hide: function () {
+        if (!overlay) return;
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+    };
+
+    /* Auto-show loader on form submissions */
+    document.addEventListener('submit', function (e) {
+      const form = e.target;
+      if (!form || form.hasAttribute('data-no-loader')) return;
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn && btn.classList.contains('btn-sm')) return;
+      AskMyLoader.show();
+    });
+  })();
+</script>
+
 {% block extra_js %}{% endblock %}
 </body>
 </html>

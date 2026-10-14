@@ -209,12 +209,14 @@
 
         setProgress("Encrypting…");
         if (progressFill) progressFill.classList.add("indeterminate");
+        if (window.AskMyLoader) AskMyLoader.show();
 
         let enc;
         try {
           enc = await AskMyCrypto.encryptFile(fileToEncrypt, otp, ITERS);
         } catch (err) {
           hideProgress(); showErr("Encryption failed: " + err.message);
+          if (window.AskMyLoader) AskMyLoader.hide();
           createBtn.disabled = false; return;
         }
 
@@ -252,10 +254,12 @@
           });
         } catch (uploadErr) {
           hideProgress(); showErr(uploadErr.message || "Upload failed.");
+          if (window.AskMyLoader) AskMyLoader.hide();
           createBtn.disabled = false; return;
         }
 
         hideProgress();
+        if (window.AskMyLoader) AskMyLoader.hide();
         const { status, data } = uploadResult;
         if (!data) { showErr("Unexpected server response."); createBtn.disabled = false; return; }
 
@@ -314,6 +318,7 @@
 
       } catch (err) {
         hideProgress(); showErr("Unexpected error: " + err.message);
+        if (window.AskMyLoader) AskMyLoader.hide();
         createBtn.disabled = false;
       }
     });

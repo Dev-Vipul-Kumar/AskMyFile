@@ -1,108 +1,172 @@
 {% extends "admin_panel/base_admin.html" %}
 {% load static %}
-{% block title %}Admin Share{% endblock %}
-{% block page_title %}Share a File (Admin — No Limits){% endblock %}
+{% block title %}Admin Share & Receive{% endblock %}
+{% block page_title %}Share & Receive Files (Admin — No Limits){% endblock %}
 
 {% block content %}
-<div style="max-width:620px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start;">
 
-  <div class="alert alert-info" style="margin-bottom:1.5rem;">
-    ⚡ Admin shares have <strong>no file size limit</strong>, <strong>no daily quota</strong>,
-    <strong>no expiry restriction</strong>, and access to <strong>all 4 share types</strong>.
-  </div>
-
-  <div class="glass-card" style="padding:2rem;">
-
-    <div id="uploadArea">
-
-      <!-- Share type selector — all 4 types, no restrictions for admin -->
-      <div class="form-group">
-        <label class="form-label">What are you sharing?</label>
-        <div class="channel-pills" role="group" id="shareTypeGroup" aria-label="Share type">
-          <button type="button" class="channel-pill active" data-sharetype="file"       aria-pressed="true">📄 Document</button>
-          <button type="button" class="channel-pill"        data-sharetype="folder"     aria-pressed="false">📁 Folder</button>
-          <button type="button" class="channel-pill"        data-sharetype="multimedia" aria-pressed="false">🖼 Multimedia</button>
-          <button type="button" class="channel-pill"        data-sharetype="movie"      aria-pressed="false" style="color:var(--orange);border-color:rgba(245,158,11,0.35);">🎬 Movie</button>
-          <button type="button" class="channel-pill"        data-sharetype="text"       aria-pressed="false">✏️ Text</button>
-        </div>
-        <p class="form-hint" id="shareTypeHint" style="min-height:1.1rem;"></p>
-      </div>
-
-      <!-- Drop zone — icon/title/sub updated by uploader.js -->
-      <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Select file">
-        <input type="file" id="fileInput" aria-label="Select file" />
-        <span class="drop-icon" id="dropIcon">📄</span>
-        <p class="drop-zone-title" id="dropTitle">Drop a document or click to browse</p>
-        <p class="drop-zone-sub" id="dropSub">No size limit for admin · All file types accepted</p>
-      </div>
-
-      <!-- Text input (shown only when text type selected) -->
-      <div id="textInputWrap" style="display:none;margin-top:0.5rem;">
-        <textarea id="textInput" class="form-input"
-                  rows="6"
-                  placeholder="Type your message here… it will be encrypted before sending."
-                  style="resize:vertical;min-height:140px;"
-                  aria-label="Text message to share"></textarea>
-      </div>
-
-      <div id="fileInfo" class="file-pill hidden" aria-live="polite">
-        <span class="file-icon">📄</span>
-        <span class="file-name" id="fileName"></span>
-        <span class="file-size" id="fileSize"></span>
-      </div>
-
-      <!-- OTP delivery -->
-      <div class="form-group" style="margin-top:1.25rem;">
-        <label class="form-label">Send access code via</label>
-        <div class="channel-pills" role="group" aria-label="OTP delivery method">
-          <button type="button" class="channel-pill active" data-channel="screen" aria-pressed="true">🖥 Screen</button>
-          <button type="button" class="channel-pill"        data-channel="email"  aria-pressed="false">📧 Email</button>
-          <button type="button" class="channel-pill"        data-channel="sms"    aria-pressed="false">📱 SMS</button>
-        </div>
-      </div>
-
-      <div id="uploadError" class="alert alert-error hidden" role="alert" aria-live="assertive"></div>
-
-      <div id="progressWrap" class="progress-wrap hidden">
-        <p class="progress-label"><span class="spin-ring"></span><span id="progressLabel">Encrypting…</span></p>
-        <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
-      </div>
-
-      <button type="button" id="createShareBtn" class="btn btn-primary btn-full btn-lg"
-              disabled style="margin-top:1.25rem;">
-        🔒 Encrypt &amp; Share (Admin)
-      </button>
+  <!-- ═══ LEFT: Share a File ═══ -->
+  <div>
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+      ⚡ Admin shares have <strong>no file size limit</strong>, <strong>no daily quota</strong>,
+      <strong>no expiry restriction</strong>, and access to <strong>all 4 share types</strong>.
     </div>
 
-    <!-- Result -->
-    <div id="resultArea" class="hidden">
-      <div id="otpReveal" class="otp-reveal">
-        <div class="scan-line"></div>
-        <p class="otp-label">Access Code</p>
-        <div class="otp-code" id="otpCode" aria-live="assertive">——————</div>
-        <p id="channelMsg" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;"></p>
-      </div>
-      <div id="emailSentMsg" style="display:none;" class="otp-reveal">
-        <div style="text-align:center;">
-          <div style="font-size:2.5rem;margin-bottom:0.75rem;">📧</div>
-          <p style="font-weight:700;color:var(--accent);font-size:1.1rem;margin-bottom:0.4rem;">Access code sent to your email</p>
-          <p style="font-size:0.85rem;color:var(--text-muted);">Check your inbox for the 6-digit code.</p>
+    <div class="glass-card" style="padding:1.5rem;">
+
+      <div id="uploadArea">
+
+        <!-- Share type selector — all 4 types, no restrictions for admin -->
+        <div class="form-group">
+          <label class="form-label">What are you sharing?</label>
+          <div class="channel-pills" role="group" id="shareTypeGroup" aria-label="Share type">
+            <button type="button" class="channel-pill active" data-sharetype="file"       aria-pressed="true">📄 Document</button>
+            <button type="button" class="channel-pill"        data-sharetype="folder"     aria-pressed="false">📁 Folder</button>
+            <button type="button" class="channel-pill"        data-sharetype="multimedia" aria-pressed="false">🖼 Multimedia</button>
+            <button type="button" class="channel-pill"        data-sharetype="movie"      aria-pressed="false" style="color:var(--orange);border-color:rgba(245,158,11,0.35);">🎬 Movie</button>
+            <button type="button" class="channel-pill"        data-sharetype="text"       aria-pressed="false">✏️ Text</button>
+          </div>
+          <p class="form-hint" id="shareTypeHint" style="min-height:1.1rem;"></p>
         </div>
+
+        <!-- Drop zone — icon/title/sub updated by uploader.js -->
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Select file">
+          <input type="file" id="fileInput" aria-label="Select file" />
+          <span class="drop-icon" id="dropIcon">📄</span>
+          <p class="drop-zone-title" id="dropTitle">Drop a document or click to browse</p>
+          <p class="drop-zone-sub" id="dropSub">No size limit for admin · All file types accepted</p>
+        </div>
+
+        <!-- Text input (shown only when text type selected) -->
+        <div id="textInputWrap" style="display:none;margin-top:0.5rem;">
+          <textarea id="textInput" class="form-input"
+                    rows="6"
+                    placeholder="Type your message here… it will be encrypted before sending."
+                    style="resize:vertical;min-height:140px;"
+                    aria-label="Text message to share"></textarea>
+        </div>
+
+        <div id="fileInfo" class="file-pill hidden" aria-live="polite">
+          <span class="file-icon">📄</span>
+          <span class="file-name" id="fileName"></span>
+          <span class="file-size" id="fileSize"></span>
+        </div>
+
+        <!-- OTP delivery -->
+        <div class="form-group" style="margin-top:1.25rem;">
+          <label class="form-label">Send access code via</label>
+          <div class="channel-pills" role="group" aria-label="OTP delivery method">
+            <button type="button" class="channel-pill active" data-channel="screen" aria-pressed="true">🖥 Screen</button>
+            <button type="button" class="channel-pill"        data-channel="email"  aria-pressed="false">📧 Email</button>
+            <button type="button" class="channel-pill"        data-channel="sms"    aria-pressed="false">📱 SMS</button>
+          </div>
+        </div>
+
+        <div id="uploadError" class="alert alert-error hidden" role="alert" aria-live="assertive"></div>
+
+        <div id="progressWrap" class="progress-wrap hidden">
+          <p class="progress-label"><span class="spin-ring"></span><span id="progressLabel">Encrypting…</span></p>
+          <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
+        </div>
+
+        <button type="button" id="createShareBtn" class="btn btn-primary btn-full btn-lg"
+                disabled style="margin-top:1.25rem;">
+          🔒 Encrypt &amp; Share (Admin)
+        </button>
       </div>
-      <div class="alert alert-success" style="margin-top:1rem;">✅ Encrypted and uploaded.</div>
-      <div class="glass-card" style="padding:0.85rem;margin-top:0.6rem;background:rgba(0,0,0,0.25);">
-        <p style="font-size:0.78rem;color:var(--text-muted);">
-          📌 Recipient opens:
-          <a href="/shares/access/" style="color:var(--accent);">{{ request.get_host }}/shares/access/</a>
-        </p>
+
+      <!-- Result -->
+      <div id="resultArea" class="hidden">
+        <div id="otpReveal" class="otp-reveal">
+          <div class="scan-line"></div>
+          <p class="otp-label">Access Code</p>
+          <div class="otp-code" id="otpCode" aria-live="assertive">——————</div>
+          <p id="channelMsg" style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;"></p>
+        </div>
+        <div id="emailSentMsg" style="display:none;" class="otp-reveal">
+          <div style="text-align:center;">
+            <div style="font-size:2.5rem;margin-bottom:0.75rem;">📧</div>
+            <p style="font-weight:700;color:var(--accent);font-size:1.1rem;margin-bottom:0.4rem;">Access code sent to your email</p>
+            <p style="font-size:0.85rem;color:var(--text-muted);">Check your inbox for the 6-digit code.</p>
+          </div>
+        </div>
+        <div class="alert alert-success" style="margin-top:1rem;">✅ Encrypted and uploaded.</div>
+        <div class="glass-card" style="padding:0.85rem;margin-top:0.6rem;background:rgba(0,0,0,0.25);">
+          <p style="font-size:0.78rem;color:var(--text-muted);">
+            📌 Recipient opens:
+            <a href="/shares/access/" style="color:var(--accent);">{{ request.get_host }}/shares/access/</a>
+          </p>
+        </div>
+        <button type="button" id="shareAnotherBtn" class="btn btn-ghost btn-full" style="margin-top:1rem;">
+          ↩ Share another file
+        </button>
       </div>
-      <button type="button" id="shareAnotherBtn" class="btn btn-ghost btn-full" style="margin-top:1rem;">
-        ↩ Share another file
-      </button>
+
+    </div>
+  </div>
+
+  <!-- ═══ RIGHT: Receive a File ═══ -->
+  <div>
+    <div class="alert alert-info" style="margin-bottom:1rem;">
+      🔓 Enter the <strong>6-digit access code</strong> to decrypt and download a shared file.
     </div>
 
+    <div class="glass-card" style="padding:1.5rem;" id="receiveArea">
+
+      <div style="text-align:center;margin-bottom:1.25rem;">
+        <div style="font-size:2.25rem;margin-bottom:0.4rem;" aria-hidden="true">🔓</div>
+        <h3 style="font-size:1.1rem;margin-bottom:0.15rem;">Enter Access Code</h3>
+        <p style="font-size:0.78rem;color:var(--text-dim);">Type the 6-digit code the sender gave you.</p>
+      </div>
+
+      <!-- 6-digit OTP input boxes -->
+      <div class="otp-group" role="group" aria-label="6-digit access code">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
+               autocomplete="one-time-code" aria-label="Digit 1" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 2" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 3" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 4" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 5" />
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 6" />
+      </div>
+
+      <div id="rcvDecryptError" class="hidden alert alert-error" role="alert" aria-live="assertive"></div>
+
+      <div id="rcvProgressWrap" class="progress-wrap hidden">
+        <div class="progress-label"><span id="rcvProgressLabel">Verifying…</span></div>
+        <div class="progress-track"><div class="progress-fill indeterminate" id="rcvProgressFill"></div></div>
+      </div>
+
+      <button type="button" class="btn btn-secondary btn-full btn-lg" id="rcvDecryptBtn" disabled style="margin-top:0.75rem;">
+        🔓 Access File
+      </button>
+
+      <div id="rcvDecryptSuccess" class="hidden mt-2">
+        <div class="alert alert-success">✅ File decrypted successfully! Your download should start automatically.</div>
+      </div>
+
+      <!-- Text output for text shares -->
+      <div id="rcvTextOutputWrap" class="hidden mt-2">
+        <pre id="rcvDecryptedText" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;color:var(--text);font-family:var(--font);font-size:0.82rem;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;"></pre>
+      </div>
+
+      <p id="rcvStatusText" class="text-muted mt-1" style="font-size:0.72rem;text-align:center;">
+        Enter all 6 digits to proceed. Decryption happens in your browser.
+      </p>
+
+    </div>
   </div>
+
 </div>
+
+<style>
+  @media (max-width: 900px) {
+    div[style*="grid-template-columns:1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -112,4 +176,5 @@
 </script>
 <script src="{% static 'js/crypto.js' %}"></script>
 <script src="{% static 'js/uploader.js' %}"></script>
+<script src="{% static 'js/admin_decryptor.js' %}"></script>
 {% endblock %}
