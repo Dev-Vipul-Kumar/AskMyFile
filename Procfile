@@ -1,0 +1,1 @@
+web: gunicorn AskMyFile.wsgi --timeout 120 --workers 2 --worker-class sync

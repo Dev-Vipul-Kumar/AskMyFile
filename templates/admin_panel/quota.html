@@ -1,0 +1,46 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Quota Manager{% endblock %}
+{% block page_title %}Quota Manager — {{ today }}{% endblock %}
+{% block content %}
+
+<div class="admin-section">
+  <div class="admin-section-header">
+    <span class="admin-section-title">⏱ Today's Quota Usage</span>
+    <span class="text-dim" style="font-size:0.78rem;">Showing top 100 identities for {{ today }}</span>
+  </div>
+
+  {% if enriched %}
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Identity</th><th>Type</th><th>Shares Used</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for row in enriched %}
+        <tr>
+          <td><strong>{{ row.label }}</strong></td>
+          <td>
+            {% if row.usage.identity_type == 'user' %}<span class="chip-ok">User</span>
+            {% else %}<span class="chip-warn">Guest</span>{% endif %}
+          </td>
+          <td style="color:var(--cyan);font-weight:700;">{{ row.usage.successful_shares }}</td>
+          <td>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="reset" />
+              <input type="hidden" name="identity_id"   value="{{ row.usage.identity_id }}" />
+              <input type="hidden" name="identity_type" value="{{ row.usage.identity_type }}" />
+              <button class="btn btn-ghost btn-sm"
+                      onclick="return confirm('Reset quota for this identity?')">↺ Reset</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-dim" style="text-align:center;padding:2rem;">No quota usage recorded today.</p>
+  {% endif %}
+</div>
+{% endblock %}

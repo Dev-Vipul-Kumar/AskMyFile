@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Help – AskMyFile{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:760px;">
+    <h1>Help &amp; FAQ</h1>
+    <div class="card mt-3">
+      <h3>How does encryption work?</h3>
+      <p style="font-size:0.92rem;margin-top:0.4rem;">Your browser uses the Web Crypto API to encrypt your file with AES-256-GCM before it is sent to the server. The passphrase you enter is used to derive the encryption key using PBKDF2. Neither the passphrase nor the key ever leave your browser.</p>
+    </div>
+    <div class="card mt-3">
+      <h3>How does the recipient decrypt?</h3>
+      <p style="font-size:0.92rem;margin-top:0.4rem;">The recipient opens the share link and enters the passphrase. Their browser downloads the ciphertext, derives the same key, and decrypts the file locally. No account is required to receive a file.</p>
+    </div>
+    <div class="card mt-3">
+      <h3>I forgot the passphrase. Can you recover it?</h3>
+      <p style="font-size:0.92rem;margin-top:0.4rem;">No. The passphrase is never sent to the server. If the passphrase is lost, the file cannot be recovered. Please store it safely and share it through a secure separate channel.</p>
+    </div>
+    <div class="card mt-3">
+      <h3>Why is the guest quota only 1 file per day?</h3>
+      <p style="font-size:0.92rem;margin-top:0.4rem;">Guest quotas are a best-effort anti-abuse measure. Register for a free account to share up to 10 files per day with verified identity enforcement.</p>
+    </div>
+    <div class="card mt-3">
+      <h3>How do I cancel my subscription?</h3>
+      <p style="font-size:0.92rem;margin-top:0.4rem;">Subscription management is available from the Plans page. If you need help, contact support.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

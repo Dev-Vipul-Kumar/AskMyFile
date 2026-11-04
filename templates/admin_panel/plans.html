@@ -1,0 +1,39 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Plans{% endblock %}
+{% block page_title %}Plan Management{% endblock %}
+{% block content %}
+
+<div class="plans-grid" style="max-width:900px;">
+  {% for plan in plans %}
+  <div class="glass-card plan-card {% if plan.featured %}featured{% endif %}" style="text-align:left;padding:1.5rem;">
+    <div class="flex-between mb-2">
+      <div class="plan-name gradient-text">{{ plan.name }}</div>
+      <span class="{% if plan.active %}chip-ok{% else %}chip-no{% endif %}">
+        {% if plan.active %}Active{% else %}Inactive{% endif %}
+      </span>
+    </div>
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="plan_id" value="{{ plan.id }}" />
+
+      <div class="form-group">
+        <label class="form-label">Price (₹/month)</label>
+        <input type="number" name="price_amount" value="{{ plan.price_amount }}" step="0.01" min="0" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Daily Share Limit</label>
+        <input type="number" name="daily_share_limit" value="{{ plan.daily_share_limit }}" min="1" class="form-input" />
+      </div>
+
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+        <button name="action" value="update_price" class="btn btn-primary btn-sm" style="flex:1;">Save</button>
+        <button name="action" value="toggle_active" class="btn {% if plan.active %}btn-danger{% else %}btn-ghost{% endif %} btn-sm">
+          {% if plan.active %}Deactivate{% else %}Activate{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

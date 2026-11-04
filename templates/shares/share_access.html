@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Receive File – AskMyFile{% endblock %}
+{% block meta_description %}Enter your 6-digit OTP code to securely receive an encrypted file.{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card fade-in" style="max-width:440px;">
+
+    <div style="text-align:center;margin-bottom:1rem;">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem;" aria-hidden="true">🔓</div>
+      <h1 style="font-size:1.5rem;">Enter Access Code</h1>
+      <p class="auth-subtitle">Type the 6-digit code the sender gave you.</p>
+    </div>
+
+    <!-- 6-digit OTP input boxes -->
+    <div class="otp-group" role="group" aria-label="6-digit access code">
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"
+             autocomplete="one-time-code" aria-label="Digit 1" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 2" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 3" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 4" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 5" />
+      <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" aria-label="Digit 6" />
+    </div>
+
+    <div id="decryptError" class="hidden alert alert-error" role="alert" aria-live="assertive"></div>
+
+    <div id="progressWrap" class="progress-wrap hidden">
+      <div class="progress-label"><span id="progressLabel">Verifying…</span></div>
+      <div class="progress-track"><div class="progress-fill indeterminate" id="progressFill"></div></div>
+    </div>
+
+    <button type="button" class="btn btn-primary btn-full btn-lg" id="decryptBtn" disabled style="margin-top:0.5rem;">
+      🔓 Access File
+    </button>
+
+    <div id="decryptSuccess" class="hidden mt-2">
+      <div class="alert alert-success">✅ File decrypted successfully! Your download should start automatically.</div>
+    </div>
+
+    <!-- Text output for text shares -->
+    <div id="textOutputWrap" class="hidden mt-2">
+      <pre id="decryptedText" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;color:var(--text);font-family:var(--font);font-size:0.82rem;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;"></pre>
+    </div>
+
+    <p id="statusText" class="text-muted mt-1" style="font-size:0.72rem;text-align:center;">
+      Enter all 6 digits to proceed. Decryption happens in your browser.
+    </p>
+  </div>
+</div>
+
+<script>
+  const CSRF_TOKEN = "{{ csrf_token }}";
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/crypto.js' %}"></script>
+<script src="{% static 'js/decryptor.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Payment Successful – AskMyFile{% endblock %}
+{% block content %}
+<div class="auth-page" style="min-height:80vh;">
+  <div class="auth-card glass-card fade-in" style="max-width:460px;text-align:center;padding:1.75rem;">
+
+    <!-- Success icon -->
+    <div style="position:relative;width:64px;height:64px;margin:0 auto 1rem;">
+      <div style="width:64px;height:64px;background:var(--secondary);
+                  border-radius:50%;display:grid;place-items:center;font-size:1.6rem;color:#fff;
+                  animation:pop-in 0.5s ease;">✅</div>
+      <div style="position:absolute;inset:-6px;border-radius:50%;
+                  border:2px solid rgba(71,117,101,0.3);
+                  animation:ripple 1.5s ease-out 0.5s infinite;"></div>
+    </div>
+
+    <h1 style="font-size:1.5rem;margin-bottom:0.35rem;" class="gradient-text">Payment Successful!</h1>
+    <p style="color:var(--text-muted);margin-bottom:1rem;">
+      Your subscription has been activated. You can now share more files every day.
+    </p>
+
+    {% if subscription %}
+    <div style="background:var(--badge-bg);border:1px solid rgba(71,117,101,0.15);
+                border-radius:var(--radius);padding:0.85rem;margin-bottom:1rem;">
+      <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem;">
+        <span style="color:var(--text-dim);">Plan</span>
+        <strong style="color:var(--accent);">{{ subscription.plan.name }}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:0.3rem;">
+        <span style="color:var(--text-dim);">Daily shares</span>
+        <strong style="color:var(--text);">{{ subscription.plan.daily_share_limit }}/day</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.82rem;">
+        <span style="color:var(--text-dim);">Valid until</span>
+        <strong style="color:var(--text);">{{ subscription.period_end|date:"M d, Y" }}</strong>
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="display:flex;gap:0.5rem;flex-direction:column;">
+      <a href="{% url 'core:home' %}" class="btn btn-primary btn-full btn-lg">
+        🚀 Start Sharing Now
+      </a>
+      <a href="{% url 'billing:plans' %}" class="btn btn-ghost btn-full">
+        View Plans
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<style>
+  @keyframes ripple {
+    0%   { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+</style>
+{% endblock %}

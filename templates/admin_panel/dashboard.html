@@ -1,0 +1,177 @@
+{% extends "admin_panel/base_admin.html" %}
+{% load static %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stat strip -->
+<div class="stat-grid">
+  <div class="glass-card stat-card">
+    <span class="stat-icon">👥</span>
+    <div class="stat-value">{{ total_users }}</div>
+    <div class="stat-label">Total Users</div>
+    <div class="stat-change">+{{ new_today }} today</div>
+  </div>
+  <div class="glass-card stat-card">
+    <span class="stat-icon">✅</span>
+    <div class="stat-value">{{ verified_users }}</div>
+    <div class="stat-label">Verified Users</div>
+  </div>
+  <div class="glass-card stat-card">
+    <span class="stat-icon">📁</span>
+    <div class="stat-value">{{ total_shares }}</div>
+    <div class="stat-label">Total Shares</div>
+    <div class="stat-change">{{ shares_today }} today</div>
+  </div>
+  <div class="glass-card stat-card">
+    <span class="stat-icon">🔗</span>
+    <div class="stat-value">{{ active_shares }}</div>
+    <div class="stat-label">Active Shares</div>
+  </div>
+  <div class="glass-card stat-card">
+    <span class="stat-icon">💳</span>
+    <div class="stat-value">{{ active_subs }}</div>
+    <div class="stat-label">Active Subs</div>
+  </div>
+  <div class="glass-card stat-card">
+    <span class="stat-icon">💾</span>
+    <div class="stat-value">{{ total_bytes_mb }}</div>
+    <div class="stat-label">MB Stored</div>
+  </div>
+</div>
+
+<!-- Chart + share types -->
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:0.75rem;margin-bottom:1rem;" class="responsive-grid-1">
+
+  <div class="admin-section">
+    <div class="admin-section-header">
+      <span class="admin-section-title">📈 Shares — last 7 days</span>
+    </div>
+    <canvas id="sharesChart" height="80"></canvas>
+  </div>
+
+  <div class="admin-section">
+    <div class="admin-section-header">
+      <span class="admin-section-title">📂 Share Types</span>
+    </div>
+    {% for stype, count in type_counts.items %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.35rem 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:0.82rem;color:var(--text-muted);">
+        {% if stype == 'file' %}📄 File{% elif stype == 'folder' %}📁 Folder{% elif stype == 'multimedia' %}🖼 Multimedia{% elif stype == 'movie' %}🎬 Movie{% elif stype == 'text' %}✏️ Text{% else %}📝 {{ stype }}{% endif %}
+      </span>
+      <strong style="color:var(--accent);">{{ count }}</strong>
+    </div>
+    {% empty %}
+    <p class="text-dim" style="font-size:0.78rem;">No shares yet.</p>
+    {% endfor %}
+
+    <div style="margin-top:0.75rem;">
+      <a href="{% url 'admin_panel:admin_share' %}" class="btn btn-primary btn-full btn-sm">
+        ⬆ Share a File (Admin)
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Recent users + shares -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;" class="responsive-grid-1">
+
+  <div class="admin-section">
+    <div class="admin-section-header">
+      <span class="admin-section-title">👥 Recent Users</span>
+      <a href="{% url 'admin_panel:users' %}" class="btn btn-ghost btn-sm">View all →</a>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr><th>Email</th><th>Verified</th><th>Joined</th></tr>
+        </thead>
+        <tbody>
+          {% for u in recent_users %}
+          <tr>
+            <td>
+              <a href="{% url 'admin_panel:user_detail' u.id %}" class="cell-email">{{ u.email }}</a>
+            </td>
+            <td>
+              {% if u.is_fully_verified %}<span class="chip-ok">✓</span>
+              {% else %}<span class="chip-no">✗</span>{% endif %}
+            </td>
+            <td style="font-size:0.72rem;color:var(--text-dim);">{{ u.created_at|date:"M d" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="admin-section">
+    <div class="admin-section-header">
+      <span class="admin-section-title">📁 Recent Shares</span>
+      <a href="{% url 'admin_panel:shares' %}" class="btn btn-ghost btn-sm">View all →</a>
+    </div>
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for s in recent_shares %}
+          <tr>
+            <td><strong>{{ s.original_filename|default:"—"|truncatechars:28 }}</strong></td>
+            <td style="font-size:0.72rem;color:var(--text-dim);">{{ s.share_type }}</td>
+            <td><span class="status-badge status-{{ s.status }}">{{ s.status }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  @media(max-width:900px){
+    .responsive-grid-1{grid-template-columns:1fr !important;}
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  /* Mini bar chart using canvas — warm palette */
+  (function(){
+    const labels = {{ chart_labels|safe }};
+    const data   = {{ chart_data|safe }};
+    const canvas = document.getElementById("sharesChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.offsetWidth || 400;
+    canvas.width  = W;
+    canvas.height = canvas.height || 100;
+    const H = canvas.height;
+    const max = Math.max(...data, 1);
+    const barW = (W - 20) / data.length;
+
+    data.forEach((v, i) => {
+      const x   = 10 + i * barW + barW * 0.1;
+      const bw  = barW * 0.8;
+      const bh  = ((v / max) * (H - 30)) || 4;
+      const y   = H - 20 - bh;
+      // Bar gradient
+      const grad = ctx.createLinearGradient(0, y, 0, H-20);
+      grad.addColorStop(0, "rgba(201,72,59,0.7)");
+      grad.addColorStop(1, "rgba(71,117,101,0.3)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x, y, bw, bh, [3,3,0,0]);
+      ctx.fill();
+      // Label
+      ctx.fillStyle = "#858B84";
+      ctx.font = "10px 'Inter',sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(labels[i].slice(-5), x + bw/2, H - 4);
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy – AskMyFile{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:760px;">
+    <h1>Privacy Policy</h1>
+    <p class="text-muted mt-1">Last updated: October 2026</p>
+
+    <div class="card mt-3">
+      <h3>What we collect</h3>
+      <ul style="color:var(--text-muted);font-size:0.92rem;line-height:2;padding-left:1.2rem;">
+        <li>Account data: email address, display name, phone number, and password hash.</li>
+        <li>Share metadata: encrypted file size, creation time, expiry, download count. Original filename and MIME type are inside the encrypted payload.</li>
+        <li>Guest identity: a pseudonymous signed cookie (hash only) to enforce daily share limits.</li>
+        <li>Billing: provider references, plan, status, and timestamps. No card numbers or CVV are stored.</li>
+        <li>Operational logs: errors and events without passphrases, passwords, or raw file content.</li>
+      </ul>
+    </div>
+
+    <div class="card mt-3">
+      <h3>Encryption and server access</h3>
+      <p style="font-size:0.92rem;">Files are encrypted in your browser using AES-256-GCM before upload.
+      The passphrase never leaves your browser. The server stores only ciphertext and non-secret
+      cryptographic parameters (salt, IV, algorithm version). AskMyFile servers cannot read your file contents.</p>
+      <p style="font-size:0.92rem;margin-top:0.5rem;">We do observe metadata: encrypted file size, upload time, expiry, access events, and account/plan information. Client-side encryption does not hide this metadata.</p>
+    </div>
+
+    <div class="card mt-3">
+      <h3>Data retention and deletion</h3>
+      <p style="font-size:0.92rem;">Encrypted payloads are deleted after link expiry or revocation. Guest identity hashes are retained for abuse-prevention purposes and are deleted after 30 days. You can request account deletion by contacting support.</p>
+    </div>
+
+    <div class="card mt-3">
+      <h3>Third-party providers</h3>
+      <p style="font-size:0.92rem;">We use email, SMS, and payment providers to deliver verification messages and process subscriptions. Each provider receives only the minimum data needed for their function.</p>
+    </div>
+
+    <div class="card mt-3">
+      <h3>Guest quota limitations</h3>
+      <p style="font-size:0.92rem;">Guest quotas are enforced per browser identity using a signed cookie and network-level signals. They are best-effort controls and cannot guarantee per-person enforcement if cookies are cleared or a different browser is used.</p>
+    </div>
+
+    <div class="card mt-3" style="border-color:rgba(240,82,82,0.3);">
+      <h3 style="color:var(--error);">Security disclaimer</h3>
+      <p style="font-size:0.92rem;">AskMyFile implements client-side encryption as described above. This application has not been independently audited as production-grade cryptographic software. Use appropriate judgment for sensitive data.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

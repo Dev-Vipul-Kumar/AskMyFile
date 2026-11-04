@@ -1,0 +1,445 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{% block title %}Admin Panel{% endblock %} — AskMyFile</title>
+  <link rel="stylesheet" href="{% static 'css/main.css' %}" />
+  <style>
+    /* ── Admin-specific overrides ── */
+    :root {
+      --admin-accent: #C9483B;
+      --admin-accent-dim: rgba(201,72,59,0.06);
+      --sidebar-w: 230px;
+    }
+
+    body::before { display: none !important; }
+
+    .admin-layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .admin-sidebar {
+      width: var(--sidebar-w);
+      background: #FFFFFF;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+    .sidebar-brand {
+      padding: 1rem 1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-brand-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.2rem;
+    }
+    .sidebar-brand-name {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .sidebar-brand-icon {
+      width: 26px; height: 26px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: grid; place-items: center;
+      font-size: 0.8rem;
+      color: #fff;
+    }
+    .sidebar-nav { flex: 1; padding: 0.5rem 0; }
+    .sidebar-section {
+      padding: 0.35rem 1rem 0.15rem;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 0.6rem;
+    }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 1rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: all var(--transition);
+      text-decoration: none;
+      border-left: 3px solid transparent;
+    }
+    .sidebar-link:hover  { color: var(--text); background: var(--surface2); }
+    .sidebar-link.active { color: var(--accent); border-left-color: var(--accent); background: var(--admin-accent-dim); font-weight: 600; }
+    .sidebar-link .icon  { width: 18px; text-align: center; font-size: 0.95rem; flex-shrink: 0; }
+    .sidebar-badge {
+      margin-left: auto;
+      background: var(--badge-bg);
+      color: var(--secondary);
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 0.08rem 0.4rem;
+      border-radius: 999px;
+    }
+    .sidebar-footer {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .sidebar-user {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .sidebar-avatar {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 0.72rem; font-weight: 700; color: #fff;
+    }
+    .sidebar-user-name  { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+    .sidebar-user-email { font-size: 0.65rem; color: var(--text-dim); }
+
+    /* Main area */
+    .admin-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    .admin-topbar {
+      background: rgba(255,255,255,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      padding: 0.6rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .admin-topbar-title { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .admin-topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+    .admin-content { padding: 1.25rem; flex: 1; }
+
+    /* Stat cards */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat-card {
+      padding: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-icon   { font-size: 1.25rem; margin-bottom: 0.4rem; display: block; }
+    .stat-value  { font-size: 1.7rem; font-weight: 800; color: var(--text); line-height: 1; }
+    .stat-label  { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-change { font-size: 0.7rem; color: var(--secondary); margin-top: 0.15rem; }
+
+    /* Data table */
+    .admin-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+    }
+    .admin-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .admin-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+      vertical-align: middle;
+    }
+    .admin-table tr:hover td { background: var(--surface2); }
+    .admin-table td strong   { color: var(--text); }
+    .cell-email  { color: var(--accent); font-size: 0.78rem; }
+    .cell-mono   { font-family: var(--mono); font-size: 0.75rem; }
+
+    /* Admin search bar */
+    .admin-search {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .admin-search input {
+      flex: 1;
+      min-width: 180px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.45rem 0.75rem;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .admin-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(201,72,59,0.08); }
+    .filter-pill {
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all var(--transition);
+    }
+    .filter-pill:hover  { color: var(--text); border-color: var(--border-strong); }
+    .filter-pill.active { background: var(--admin-accent-dim); color: var(--accent); border-color: rgba(201,72,59,0.3); }
+
+    /* Section card */
+    .admin-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .admin-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .admin-section-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+
+    /* Verified / unverified chips */
+    .chip-ok  { background: var(--badge-bg); color: var(--secondary); border-radius: 999px; padding: 0.08rem 0.45rem; font-size: 0.65rem; font-weight: 700; }
+    .chip-no  { background: rgba(201,72,59,0.08); color: var(--accent); border-radius: 999px; padding: 0.08rem 0.45rem; font-size: 0.65rem; font-weight: 700; }
+    .chip-warn{ background: rgba(232,95,77,0.08); color: var(--orange); border-radius: 999px; padding: 0.08rem 0.45rem; font-size: 0.65rem; font-weight: 700; }
+
+    /* Mobile sidebar toggle */
+    .sidebar-toggle {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 900px) {
+      .admin-sidebar {
+        position: fixed; left: -260px; transition: left 0.25s ease;
+        box-shadow: none;
+      }
+      .admin-sidebar.open { left: 0; box-shadow: 4px 0 24px rgba(0,0,0,0.1); }
+      .sidebar-toggle { display: block; }
+      .admin-content { padding: 0.75rem; }
+      .admin-topbar { padding: 0.5rem 0.75rem; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+      .stat-card { padding: 0.75rem; }
+      .stat-value { font-size: 1.3rem; }
+    }
+
+    @media (max-width: 479px) {
+      .stat-grid { grid-template-columns: 1fr; }
+      .admin-topbar-right { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Global Fullscreen Loader Overlay ═══ -->
+<div id="globalLoaderOverlay" aria-hidden="true" role="status">
+  <svg class="loader-svg" viewBox="0 0 240 240">
+    <circle class="loader-svg__ring loader-svg__ring--a" cx="120" cy="120" r="105" fill="none" stroke-width="20" stroke-dasharray="0 660" stroke-dashoffset="-330" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--b" cx="120" cy="120" r="35" fill="none" stroke-width="20" stroke-dasharray="0 220" stroke-dashoffset="-110" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--c" cx="120" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-dashoffset="-220" stroke-linecap="round"></circle>
+    <circle class="loader-svg__ring loader-svg__ring--d" cx="120" cy="120" r="70" fill="none" stroke-width="20" stroke-dasharray="0 440" stroke-dashoffset="-220" stroke-linecap="round"></circle>
+  </svg>
+</div>
+
+<div class="admin-layout">
+
+  <!-- ═══ Sidebar ═══ -->
+  <aside class="admin-sidebar" id="adminSidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-label">Admin Panel</div>
+      <div class="sidebar-brand-name">
+        <span class="sidebar-brand-icon">⚙</span>
+        AskMyFile
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section">Overview</div>
+      <a href="{% url 'admin_panel:dashboard' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <span class="icon">📊</span> Dashboard
+      </a>
+
+      <div class="sidebar-section">Content</div>
+      <a href="{% url 'admin_panel:shares' %}"
+         class="sidebar-link {% if 'share' in request.resolver_match.url_name %}active{% endif %}">
+        <span class="icon">📁</span> All Shares
+      </a>
+      <a href="{% url 'admin_panel:admin_share' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'admin_share' %}active{% endif %}">
+        <span class="icon">🔄</span> Share & Receive
+        <span class="sidebar-badge">∞</span>
+      </a>
+
+      <div class="sidebar-section">Users</div>
+      <a href="{% url 'admin_panel:users' %}"
+         class="sidebar-link {% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+        <span class="icon">👥</span> All Users
+      </a>
+
+      <div class="sidebar-section">Billing</div>
+      <a href="{% url 'admin_panel:subscriptions' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'subscriptions' %}active{% endif %}">
+        <span class="icon">💳</span> Subscriptions
+      </a>
+      <a href="{% url 'admin_panel:plans' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'plans' %}active{% endif %}">
+        <span class="icon">📋</span> Plans
+      </a>
+
+      <div class="sidebar-section">System</div>
+      <a href="{% url 'admin_panel:quota' %}"
+         class="sidebar-link {% if request.resolver_match.url_name == 'quota' %}active{% endif %}">
+        <span class="icon">⏱</span> Quota Manager
+      </a>
+      <a href="/admin/" class="sidebar-link" target="_blank">
+        <span class="icon">🔧</span> Django Admin
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar">{{ request.user.full_name|first|upper }}</div>
+        <div>
+          <div class="sidebar-user-name">{{ request.user.full_name }}</div>
+          <div class="sidebar-user-email">{{ request.user.email }}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.35rem;">
+        <a href="/" class="btn btn-ghost btn-sm" style="flex:1;font-size:0.72rem;">← Site</a>
+        <form method="post" action="{% url 'accounts:logout' %}" style="flex:1;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm" style="width:100%;font-size:0.72rem;">Sign Out</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ Main ═══ -->
+  <div class="admin-main">
+
+    <div class="admin-topbar">
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+        <span class="admin-topbar-title">{% block page_title %}Admin Panel{% endblock %}</span>
+      </div>
+      <div class="admin-topbar-right">
+        <span style="font-size:0.68rem;padding:0.15rem 0.5rem;background:var(--admin-accent-dim);color:var(--accent);border-radius:999px;border:1px solid rgba(201,72,59,0.2);font-weight:600;">
+          ⚡ Staff
+        </span>
+        <span class="text-dim" style="font-size:0.72rem;">{{ request.user.email }}</span>
+      </div>
+    </div>
+
+    {% if messages %}
+    <div style="padding:0.5rem 1.25rem 0;">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags|default:'info' }} fade-in">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="admin-content">
+      {% block content %}{% endblock %}
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const toggle  = document.getElementById("sidebarToggle");
+  const sidebar = document.getElementById("adminSidebar");
+  if (toggle && sidebar) {
+    toggle.addEventListener("click", () => sidebar.classList.toggle("open"));
+    // Close sidebar on outside click (mobile)
+    document.addEventListener("click", (e) => {
+      if (window.innerWidth <= 900 && sidebar.classList.contains("open") &&
+          !sidebar.contains(e.target) && e.target !== toggle) {
+        sidebar.classList.remove("open");
+      }
+    });
+  }
+</script>
+
+<script>
+  /* ── Global Loader API ── */
+  (function () {
+    const overlay  = document.getElementById('globalLoaderOverlay');
+
+    window.AskMyLoader = {
+      show: function () {
+        if (!overlay) return;
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      },
+      hide: function () {
+        if (!overlay) return;
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+    };
+
+    /* Auto-show loader on form submissions */
+    document.addEventListener('submit', function (e) {
+      const form = e.target;
+      if (!form || form.hasAttribute('data-no-loader')) return;
+      const btn = form.querySelector('button[type="submit"]');
+      if (btn && btn.classList.contains('btn-sm')) return;
+      AskMyLoader.show();
+    });
+  })();
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

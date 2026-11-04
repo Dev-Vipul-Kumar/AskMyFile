@@ -1,0 +1,49 @@
+{% extends "admin_panel/base_admin.html" %}
+{% block title %}Subscriptions{% endblock %}
+{% block page_title %}Subscriptions{% endblock %}
+{% block content %}
+
+<div class="admin-search">
+  <a href="?filter=all"       class="filter-pill {% if filt == 'all' %}active{% endif %}">All</a>
+  <a href="?filter=active"    class="filter-pill {% if filt == 'active' %}active{% endif %}">Active</a>
+  <a href="?filter=pending"   class="filter-pill {% if filt == 'pending' %}active{% endif %}">Pending</a>
+  <a href="?filter=cancelled" class="filter-pill {% if filt == 'cancelled' %}active{% endif %}">Cancelled</a>
+  <a href="?filter=expired"   class="filter-pill {% if filt == 'expired' %}active{% endif %}">Expired</a>
+  <a href="?filter=refunded"  class="filter-pill {% if filt == 'refunded' %}active{% endif %}">Refunded</a>
+</div>
+
+<div class="admin-section">
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr><th>User</th><th>Plan</th><th>Status</th><th>Period End</th><th>Provider Ref</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for sub in subs %}
+        <tr>
+          <td><a href="{% url 'admin_panel:user_detail' sub.user.id %}" class="cell-email">{{ sub.user.email|truncatechars:28 }}</a></td>
+          <td><strong>{{ sub.plan.name }}</strong></td>
+          <td><span class="status-badge status-{% if sub.status == 'active' %}active{% elif sub.status == 'cancelled' %}revoked{% elif sub.status == 'pending' %}exhausted{% else %}expired{% endif %}">{{ sub.status }}</span></td>
+          <td style="font-size:0.78rem;color:var(--text-dim);">{{ sub.period_end|date:"M d, Y"|default:"—" }}</td>
+          <td class="cell-mono" style="font-size:0.72rem;color:var(--text-dim);">{{ sub.provider_subscription_ref|truncatechars:20|default:"—" }}</td>
+          <td style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+            <form method="post" action="{% url 'admin_panel:update_subscription' sub.id %}">
+              {% csrf_token %}
+              {% if sub.status != 'active' %}
+              <button name="action" value="activate" class="btn btn-ghost btn-sm">Activate</button>
+              {% else %}
+              <button name="action" value="cancel" class="btn btn-danger btn-sm">Cancel</button>
+              {% endif %}
+              <button name="action" value="delete" class="btn btn-ghost btn-sm"
+                      onclick="return confirm('Delete this subscription record?')">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-dim);">No subscriptions found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
