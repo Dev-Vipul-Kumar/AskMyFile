@@ -1,7 +1,9 @@
 import logging
+import shutil
+from pathlib import Path
 
 from django.conf import settings
-from django.core.files.base import ContentFile
+from django.core.files.base import File
 from django.core.files.storage import FileSystemStorage
 from django.core.mail import send_mail
 from django.db import transaction
@@ -64,7 +66,8 @@ def deliver_otp(share: Share, raw_otp: str, channel: str, user=None) -> None:
 
 def create_share(
     *,
-    file_bytes: bytes,
+    file_obj: File,
+    ciphertext_size: int,
     salt_b64: str,
     iv_b64: str,
     original_filename: str = "",
@@ -108,14 +111,15 @@ def create_share(
             if usage.successful_shares >= limit:
                 return {"ok": False, "error": "quota_exceeded"}
 
-        _private_storage.save(storage_key, ContentFile(file_bytes))
+        file_obj.seek(0)
+        _private_storage.save(storage_key, file_obj)
 
         share = Share.objects.create(
             owner_user        = user if (user and user.is_authenticated) else None,
             guest_identity    = guest_identity if not (user and user.is_authenticated) else None,
             access_otp_hash   = otp_hash,
             storage_key       = storage_key,
-            ciphertext_size   = len(file_bytes),
+            ciphertext_size   = ciphertext_size,
             algorithm_version = algorithm_version,
             salt              = salt_b64,
             iv                = iv_b64,
@@ -162,6 +166,27 @@ def get_file_bytes(share: Share) -> bytes | None:
         return None
 
 
+def cleanup_pending_uploads(dry_run: bool = False) -> dict:
+    root = Path(settings.MEDIA_ROOT) / ".pending_uploads"
+    if not root.is_dir():
+        return {"deleted": 0, "errors": 0}
+
+    expiry = timezone.now().timestamp() - 24 * 60 * 60
+    deleted = errors = 0
+    for path in root.iterdir():
+        try:
+            if path.is_dir() and path.stat().st_mtime < expiry:
+                if not dry_run:
+                    shutil.rmtree(path)
+                deleted += 1
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            logger.warning("Could not remove stale upload staging directory %s: %s", path, exc)
+            errors += 1
+    return {"deleted": deleted, "errors": errors}
+
+
 def cleanup_expired_shares(dry_run: bool = False) -> dict:
     now = timezone.now()
     candidates = Share.objects.filter(
@@ -184,4 +209,8 @@ def cleanup_expired_shares(dry_run: bool = False) -> dict:
             deleted += 1
         except Exception:
             errors += 1
+
+    pending = cleanup_pending_uploads(dry_run=dry_run)
+    deleted += pending["deleted"]
+    errors += pending["errors"]
     return {"deleted": deleted, "errors": errors}

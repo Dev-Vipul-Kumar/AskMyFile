@@ -89,6 +89,65 @@
     if (progressFill) { progressFill.classList.remove("indeterminate"); progressFill.style.width = "0%"; }
   }
 
+  function postForm(url, form, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      if (onProgress) xhr.upload.addEventListener("progress", onProgress);
+      xhr.addEventListener("load", () => {
+        let data;
+        try { data = JSON.parse(xhr.responseText); } catch { data = null; }
+        resolve({ status: xhr.status, data });
+      });
+      xhr.addEventListener("error", () => reject(new Error("Network error")));
+      xhr.addEventListener("timeout", () => reject(new Error("Upload timed out")));
+      xhr.open("POST", url);
+      xhr.setRequestHeader("X-CSRFToken", csrf());
+      xhr.timeout = 600000;
+      xhr.send(form);
+    });
+  }
+
+  async function uploadCiphertext(enc, metadata) {
+    if (!(enc.ciphertext instanceof Blob)) {
+      const form = new FormData();
+      form.append("file_data", new Blob([enc.ciphertext], { type: "application/octet-stream" }), "payload.bin");
+      Object.entries(metadata).forEach(([key, value]) => form.append(key, value));
+      return postForm("/shares/create/", form, e => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          setProgressPct(`Uploading… ${pct}%`, pct);
+        }
+      });
+    }
+
+    const startForm = new FormData();
+    startForm.append("ciphertext_size", enc.ciphertext.size);
+    Object.entries(metadata).forEach(([key, value]) => startForm.append(key, value));
+    const started = await postForm("/shares/upload/start/", startForm);
+    if (!started.data || !started.data.ok) return started;
+
+    const { ticket, chunk_size: chunkSize } = started.data;
+    for (let index = 0, offset = 0; offset < enc.ciphertext.size; index++) {
+      const end = Math.min(offset + chunkSize, enc.ciphertext.size);
+      const form = new FormData();
+      form.append("ticket", ticket);
+      form.append("chunk_index", index);
+      form.append("chunk_data", enc.ciphertext.slice(offset, end), "chunk.bin");
+      const result = await postForm("/shares/upload/chunk/", form, e => {
+        if (e.lengthComputable) {
+          const pct = Math.min(100, Math.round(((offset + e.loaded) / enc.ciphertext.size) * 100));
+          setProgressPct(`Uploading… ${pct}%`, pct);
+        }
+      });
+      if (!result.data || !result.data.ok) return result;
+      offset = end;
+    }
+
+    const completeForm = new FormData();
+    completeForm.append("ticket", ticket);
+    return postForm("/shares/upload/complete/", completeForm);
+  }
+
   function checkReady() {
     if (!createBtn) return;
     if (selectedType === "text") {
@@ -209,57 +268,35 @@
 
         setProgress("Encrypting…");
         if (progressFill) progressFill.classList.add("indeterminate");
-        if (window.AskMyLoader) AskMyLoader.show();
 
         let enc;
         try {
           enc = await AskMyCrypto.encryptFile(fileToEncrypt, otp, ITERS);
         } catch (err) {
           hideProgress(); showErr("Encryption failed: " + err.message);
-          if (window.AskMyLoader) AskMyLoader.hide();
           createBtn.disabled = false; return;
         }
 
-        const form = new FormData();
-        form.append("file_data",         new Blob([enc.ciphertext], { type: "application/octet-stream" }), "payload.bin");
-        form.append("salt_b64",          enc.saltB64);
-        form.append("iv_b64",            enc.ivB64);
-        form.append("algorithm_version", enc.algorithmVersion);
-        form.append("original_filename", displayName);
-        form.append("share_type",        shareType);
-        form.append("otp_hash",          otpHash);
+        const metadata = {
+          salt_b64: enc.saltB64,
+          iv_b64: enc.ivB64,
+          algorithm_version: enc.algorithmVersion,
+          original_filename: displayName,
+          share_type: shareType,
+          otp_hash: otpHash,
+        };
 
         setProgressPct("Uploading… 0%", 0);
 
         let uploadResult;
         try {
-          uploadResult = await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.upload.addEventListener("progress", e => {
-              if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 100);
-                setProgressPct(`Uploading… ${pct}%`, pct);
-              }
-            });
-            xhr.addEventListener("load", () => {
-              try { resolve({ status: xhr.status, data: JSON.parse(xhr.responseText) }); }
-              catch { resolve({ status: xhr.status, data: null }); }
-            });
-            xhr.addEventListener("error",   () => reject(new Error("Network error")));
-            xhr.addEventListener("timeout",  () => reject(new Error("Upload timed out")));
-            xhr.open("POST", "/shares/create/");
-            xhr.setRequestHeader("X-CSRFToken", csrf());
-            xhr.timeout = 600000; // 10 minutes for large files
-            xhr.send(form);
-          });
+          uploadResult = await uploadCiphertext(enc, metadata);
         } catch (uploadErr) {
           hideProgress(); showErr(uploadErr.message || "Upload failed.");
-          if (window.AskMyLoader) AskMyLoader.hide();
           createBtn.disabled = false; return;
         }
 
         hideProgress();
-        if (window.AskMyLoader) AskMyLoader.hide();
         const { status, data } = uploadResult;
         if (!data) { showErr("Unexpected server response."); createBtn.disabled = false; return; }
 
@@ -271,13 +308,14 @@
         if (!data.ok) {
           const MAP = {
             file_too_large:             "File exceeds the allowed size limit.",
+            movie_requires_subscription:"🎬 Movie sharing requires a paid subscription.",
+            movie_too_large:            `🎬 Movie exceeds your plan's limit (${data.limit_gb || "?"}GB).`,
+            upload_expired:             "Upload session expired. Please start again.",
             missing_file:               "No file received by server.",
             missing_crypto_params:      "Encryption params missing — please try again.",
             missing_otp_hash:           "OTP hash missing — please try again.",
             unverified_account:         "Please complete account verification first.",
             movie_requires_account:     "You must be signed in to share movies.",
-            movie_requires_subscription:"🎬 Movie sharing requires a paid subscription.",
-            movie_too_large:            `🎬 Movie exceeds your plan's limit (${data.limit_gb || "?"}GB).`,
           };
           showErr(MAP[data.error] || ("Error: " + (data.error || "unknown")));
           createBtn.disabled = false; return;
@@ -318,7 +356,6 @@
 
       } catch (err) {
         hideProgress(); showErr("Unexpected error: " + err.message);
-        if (window.AskMyLoader) AskMyLoader.hide();
         createBtn.disabled = false;
       }
     });

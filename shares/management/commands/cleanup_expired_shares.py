@@ -1,14 +1,14 @@
 """
 Management command: python manage.py cleanup_expired_shares
-Run this periodically (e.g., via cron or a task queue) to delete
-expired/revoked ciphertext from private storage and update share status.
+Run this periodically (e.g., via cron or a task queue) to delete expired
+ciphertext, stale upload staging files, and update share status.
 """
 from django.core.management.base import BaseCommand
 from shares.services import cleanup_expired_shares
 
 
 class Command(BaseCommand):
-    help = "Delete expired and revoked share payloads from private storage."
+    help = "Delete expired shares and stale upload staging files."
 
     def add_arguments(self, parser):
         parser.add_argument(

@@ -168,7 +168,7 @@
         decryptBtn.disabled = false; return;
       }
 
-      const { share_id, salt_b64, iv_b64, pbkdf2_iterations, share_type, ciphertext_size } = vdata;
+      const { share_id, salt_b64, iv_b64, algorithm_version, pbkdf2_iterations, share_type, ciphertext_size } = vdata;
 
       // Use chunked download for large files to avoid OOM
       setProgress("Downloading encrypted content…");
@@ -189,7 +189,7 @@
       try {
         result = await AskMyCrypto.decryptFile(
           ctBuf, otp, salt_b64, iv_b64,
-          pbkdf2_iterations || ITERS
+          pbkdf2_iterations || ITERS, algorithm_version
         );
       } catch (err) {
         hideProgress();

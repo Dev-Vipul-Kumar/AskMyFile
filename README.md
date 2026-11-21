@@ -3,6 +3,7 @@
 A full-stack Django web application for securely sharing files via unique links.
 Files are **encrypted in the browser** (AES-256-GCM) before upload.
 The server only ever stores ciphertext — it never sees file contents or the passphrase.
+Large files are encrypted in segments and uploaded in bounded-size requests.
 
 ## Features
 
@@ -118,5 +119,6 @@ python manage.py seed_plans
 - [ ] Configure SMS provider (`SMS_PROVIDER_KEY`)
 - [ ] Configure payment provider (`PAYMENT_SECRET_KEY`, `PAYMENT_WEBHOOK_SECRET`)
 - [ ] Use private persistent object storage for `private_uploads/`
+- [ ] Ensure the upload disk has room for the incoming file and its stored copy during finalization
 - [ ] Schedule `python manage.py cleanup_expired_shares` (cron / task queue)
 - [ ] Run `python manage.py collectstatic`

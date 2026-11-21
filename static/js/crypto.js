@@ -8,17 +8,7 @@ const AskMyCrypto = (() => {
   const SALT_BYTES= 16;
   const TAG_BITS  = 128;
 
-  /**
-   * Chunk size for reading large files to avoid OOM.
-   * AES-GCM encrypts the entire payload at once (no streaming mode in WebCrypto),
-   * so we chunk the FILE READ, not the encryption. However, for very large files
-   * (>500MB) even the encryption can OOM the browser. We handle this by:
-   * 1) Reading the file in chunks into an ArrayBuffer (avoids double-buffering).
-   * 2) Using a single encrypt/decrypt call.
-   *
-   * For files larger than ~1.5GB, we split into multiple encrypted segments,
-   * each with its own GCM tag, to stay within browser memory limits.
-   */
+  // Large files are encrypted in segments and assembled as a Blob for chunked upload.
   const SEGMENT_SIZE = 64 * 1024 * 1024; // 64 MB segments for large file chunked encryption
 
   const rand = n => crypto.getRandomValues(new Uint8Array(n));
@@ -53,6 +43,23 @@ const AskMyCrypto = (() => {
   function u32be(n) { return new Uint8Array([(n>>24)&0xff, (n>>16)&0xff, (n>>8)&0xff, n&0xff]); }
   function readu16be(buf, off) { return (buf[off]<<8)|buf[off+1]; }
   function readu32be(buf, off) { return (buf[off]<<24)|(buf[off+1]<<16)|(buf[off+2]<<8)|buf[off+3]; }
+  function segmentIv(iv, index) {
+    const out = new Uint8Array(iv);
+    let carry = index;
+    for (let i = out.length - 1; i >= 0 && carry; i--) {
+      const sum = out[i] + (carry % 256);
+      out[i] = sum & 0xff;
+      carry = Math.floor(carry / 256) + Math.floor(sum / 256);
+    }
+    if (carry) throw new Error("Too many encrypted segments");
+    return out;
+  }
+  function legacySegmentIv(iv, index) {
+    const out = new Uint8Array(iv);
+    out[IV_BYTES - 1] = (out[IV_BYTES - 1] + index) & 0xff;
+    out[IV_BYTES - 2] = (out[IV_BYTES - 2] + (index >> 8)) & 0xff;
+    return out;
+  }
 
   async function deriveKey(otp, salt, iterations) {
     const km = await crypto.subtle.importKey("raw", enc.encode(otp), {name:"PBKDF2"}, false, ["deriveKey"]);
@@ -111,7 +118,7 @@ const AskMyCrypto = (() => {
   }
 
   /**
-   * Encrypt file — for large files, uses segmented encryption.
+   * Encrypt file — files at least 32 MB use segmented encryption.
    * Each segment is individually encrypted with an incrementing IV
    * to stay within browser memory limits.
    *
@@ -123,15 +130,19 @@ const AskMyCrypto = (() => {
    * Regular (small) files use the original single-shot format.
    */
   async function encryptFile(file, otp, iterations=100000) {
-    const fileBytes = await readFileChunked(file);
-    const envelope  = buildEnvelope(file.name, file.type, fileBytes);
-
     const salt = rand(SALT_BYTES);
     const iv   = rand(IV_BYTES);
     const key  = await deriveKey(otp, salt, iterations);
+    const filename = enc.encode(file.name || "file");
+    const mimeType = enc.encode(file.type || "application/octet-stream");
+    const envelopeHeader = concat(
+      MAGIC, u16be(filename.length), filename, u16be(mimeType.length), mimeType
+    );
+    const envelopeLength = envelopeHeader.length + file.size;
 
-    // For files under ~200MB, use single-shot encryption (most common case)
-    if (envelope.length < 200 * 1024 * 1024) {
+    if (envelopeLength < 32 * 1024 * 1024) {
+      const fileBytes = await readFileChunked(file);
+      const envelope = buildEnvelope(file.name, file.type, fileBytes);
       const ctBuf = await crypto.subtle.encrypt({name:ALGO, iv, tagLength:TAG_BITS}, key, envelope);
       return {
         ciphertext:       new Uint8Array(ctBuf),
@@ -142,57 +153,50 @@ const AskMyCrypto = (() => {
     }
 
     // ── Segmented encryption for large files ──
-    const segmentCount = Math.ceil(envelope.length / SEGMENT_SIZE);
-    const segments = [];
+    const segmentCount = Math.ceil(envelopeLength / SEGMENT_SIZE);
+    const parts = [
+      new TextEncoder().encode("AMFS"),
+      u32be(segmentCount),
+      u32be(SEGMENT_SIZE),
+    ];
 
     for (let i = 0; i < segmentCount; i++) {
       const start = i * SEGMENT_SIZE;
-      const end   = Math.min(start + SEGMENT_SIZE, envelope.length);
-      const chunk = envelope.slice(start, end);
+      const end = Math.min(start + SEGMENT_SIZE, envelopeLength);
+      const chunk = new Uint8Array(end - start);
+      if (start < envelopeHeader.length) {
+        const headerEnd = Math.min(end, envelopeHeader.length);
+        chunk.set(envelopeHeader.subarray(start, headerEnd));
+      }
+      const fileStart = Math.max(0, start - envelopeHeader.length);
+      const fileEnd = Math.max(0, end - envelopeHeader.length);
+      if (fileEnd > fileStart) {
+        const fileChunk = new Uint8Array(await file.slice(fileStart, fileEnd).arrayBuffer());
+        chunk.set(fileChunk, Math.max(start, envelopeHeader.length) - start);
+      }
 
-      // Derive unique IV per segment by incrementing
-      const segIv = new Uint8Array(iv);
-      const counter = i;
-      segIv[IV_BYTES-1] = (segIv[IV_BYTES-1] + counter) & 0xff;
-      segIv[IV_BYTES-2] = (segIv[IV_BYTES-2] + (counter >> 8)) & 0xff;
-
-      const ctBuf = await crypto.subtle.encrypt({name:ALGO, iv:segIv, tagLength:TAG_BITS}, key, chunk);
-      segments.push(new Uint8Array(ctBuf));
+      const ctBuf = await crypto.subtle.encrypt(
+        {name:ALGO, iv:segmentIv(iv, i), tagLength:TAG_BITS}, key, chunk
+      );
+      const encryptedSegment = new Uint8Array(ctBuf);
+      parts.push(u32be(encryptedSegment.length), encryptedSegment);
 
       // Allow GC and UI updates between segments
       await new Promise(r => setTimeout(r, 0));
     }
 
-    // Build segmented output: AMFS header + segments
-    const marker = new TextEncoder().encode("AMFS");
-    let totalLen = marker.length + 4 + 4; // marker + count + segment_size
-    for (const seg of segments) {
-      totalLen += 4 + seg.length; // length prefix + ciphertext
-    }
-
-    const output = new Uint8Array(totalLen);
-    let off = 0;
-    output.set(marker, off); off += marker.length;
-    output.set(u32be(segmentCount), off); off += 4;
-    output.set(u32be(SEGMENT_SIZE), off); off += 4;
-
-    for (const seg of segments) {
-      output.set(u32be(seg.length), off); off += 4;
-      output.set(seg, off); off += seg.length;
-    }
-
     return {
-      ciphertext:       output,
+      ciphertext:       new Blob(parts, { type: "application/octet-stream" }),
       saltB64:          toB64(salt),
       ivB64:            toB64(iv),
-      algorithmVersion: "AES-GCM-256-v1",
+      algorithmVersion: "AES-GCM-256-v2",
     };
   }
 
   /**
    * Decrypt — handles both single-shot and segmented ciphertext.
    */
-  async function decryptFile(ciphertext, otp, saltB64, ivB64, iterations=100000) {
+  async function decryptFile(ciphertext, otp, saltB64, ivB64, iterations=100000, algorithmVersion="AES-GCM-256-v1") {
     const salt = fromB64(saltB64);
     const iv   = fromB64(ivB64);
     const key  = await deriveKey(otp, salt, iterations);
@@ -229,14 +233,17 @@ const AskMyCrypto = (() => {
         const ctLen = readu32be(ciphertext, off); off += 4;
         const ctChunk = ciphertext.slice(off, off + ctLen); off += ctLen;
 
-        // Reconstruct segment IV
-        const segIv = new Uint8Array(iv);
-        segIv[IV_BYTES-1] = (segIv[IV_BYTES-1] + i) & 0xff;
-        segIv[IV_BYTES-2] = (segIv[IV_BYTES-2] + (i >> 8)) & 0xff;
-
         let plainChunk;
         try {
-          plainChunk = await crypto.subtle.decrypt({name:ALGO, iv:segIv, tagLength:TAG_BITS}, key, ctChunk);
+          plainChunk = await crypto.subtle.decrypt(
+            {
+              name:ALGO,
+              iv: algorithmVersion === "AES-GCM-256-v1" ? legacySegmentIv(iv, i) : segmentIv(iv, i),
+              tagLength:TAG_BITS,
+            },
+            key,
+            ctChunk
+          );
         } catch {
           throw new Error("Decryption failed — incorrect code or corrupted file.");
         }
